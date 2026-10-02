@@ -60,6 +60,29 @@ const FD=[
  {n:'ささやきの森',lv:[14,28],bg:'#14281c',gr:'#1d3a2a',en:[['wolf',4],['spore',3],['bee',3]]},
  {n:'灼熱の火山',lv:[28,50],bg:'#2e1a16',gr:'#44261f',en:[['imp',4],['lizard',3],['magma',2]]}
 ];
+// フィールドの出口: r=Eキーで移動できる範囲 / to=行き先 / p=行き先で立つ位置 / b=出口の目印(帯)の位置
+const exL=to=>({r:[0,170,50,310],to,p:[W-70,240],b:[0,170,10,140]}),exR=to=>({r:[W-50,170,W,310],to,p:[70,240],b:[W-10,170,10,140]});
+FD[1].img='RPG/sougen.png';
+FD[1].ex=[{r:[320,0,480,45],to:0,p:[400,70],b:[320,0,160,8]},{r:[W-50,240,W,400],to:4,p:[70,240],b:[W-10,240,10,160]},{r:[200,H-45,520,H],to:2,p:[70,240],b:[200,H-8,320,8]}];
+FD[2].ex=[{...exL(1),p:[360,345]},exR(3)];
+FD[3].ex=[exL(2)];
+FD[4].ex=[{...exL(1),p:[W-70,320]},exR(5)];
+FD[5].ex=[exL(4)];
+for(const f of FD)if(f.img){const im=new Image();im.onload=()=>{f.imOK=1};im.src=f.img;f.im=im}
+// はじまりの草原 左上の謎の道: 1回目に調べると宝箱が現れ、2回目に開けると30G(開けられるのは1回だけ)
+function pathChest(){
+ if(!P.ch.s){P.ch.s=1;ring(62,100,40,'#ffe27a',.6);talk('','道の奥を調べると、宝箱が現れた!');return}
+ if(P.ch.o){talk('','宝箱はもう空っぽだ');return}
+ P.ch.o=1;addG(30);talk('','宝箱を開けた! 30ゴールドを手に入れた');
+}
+FD[1].ix=[{x:62,y:100,r:50,get hint(){return P.ch.s&&!P.ch.o?'E: 開ける':'E: 調べる'},fn:pathChest}];
+function drawChest(){
+ if(FI!=1||!P.ch.s)return;const o=P.ch.o,x=62,y=100;g.save();
+ g.fillStyle=o?'#6b5a3a':'#c9a24a';g.fillRect(x-14,y-6,28,18);
+ g.fillStyle=o?'#4a3d27':'#a8802f';g.fillRect(x-14,o?y-20:y-14,28,8);
+ if(!o){g.fillStyle='#fff3b0';g.fillRect(x-3,y-4,6,8)}
+ g.strokeStyle='#2b2012';g.lineWidth=1.5;g.strokeRect(x-14,y-6,28,18);g.restore();
+}
 const TY={
  slime:{n:'スライム',c:'#5ec26a',r:12,hp:1,dm:.8,sp:.8,xp:1,dr:[['gel',.55],['bgel',.07]]},
  rabbit:{n:'ホーンラビット',c:'#e8d9b8',r:10,hp:.7,dm:.7,sp:1.5,xp:1.1,dr:[['fur',.5],['tail',.07]]},
@@ -82,7 +105,7 @@ const POT=[
  {id:'eth',n:'エーテル',k:'mp',r:.4,p:40,d:'MPを40%回復'},
  {id:'hpot',n:'ハイポーション',k:'hp',r:.8,p:110,d:'HPを80%回復'}];
 let FI=0;cv.style.background=FD[0].bg;
-const K={};let P={x:400,y:240,lv:1,exp:0,job:'none',hp:16,cd:[0,0,0],sk:[1,1],ba:1,st:[0,0,0,0,0],mp:999,face:1,hit:0,gk:0,gm:0,inv:{},eq:{w:null,a:null,s:null},cr:{},gold:0,it:{},pcd:0},E=[],HZ=[],B=null,F=[],R=[],state='play',msg={t:0,s:''};
+const K={};let P={x:400,y:240,lv:1,exp:0,job:'none',hp:16,cd:[0,0,0],sk:[1,1],ba:1,st:[0,0,0,0,0],mp:999,face:1,hit:0,gk:0,gm:0,inv:{},eq:{w:null,a:null,s:null},cr:{},gold:0,it:{},pcd:0,ch:{}},E=[],HZ=[],B=null,F=[],R=[],state='play',msg={t:0,s:''};
 const J=()=>JOBS[P.job],need=l=>10+l*l*3,maxHp=()=>J().hp+P.lv*4+P.st[0]*3,maxMp=()=>20+P.lv*2+P.st[1]*2,aInt=()=>{const a=J().a;return Math.max(a[2],a[0]-a[1]*P.lv)*(1-.02*(P.ba-1))},aMul=()=>{const a=J().a;return (a[3]+a[4]*P.lv)*(1+.08*(P.ba-1))};
 const stp=()=>(P.lv-1)*3-P.st.reduce((a,b)=>a+b,0),pts=()=>P.lv-1-(P.ba-1)-(P.sk[0]-1)-(P.sk[1]-1),sm=(s,i)=>(s.m||0)*(1+.12*(P.sk[i]-1)),scd=(s,i)=>s.cd*(1-.03*(P.sk[i]-1)),sh=(s,i)=>(s.heal||0)*(1+.05*(P.sk[i]-1))*(1+.02*P.st[3]);
 const say=s=>msg={t:2.4,s};
@@ -315,9 +338,9 @@ function hud(){
 function bar(x,y,w,h,v,c){g.fillStyle='#0008';g.fillRect(x,y,w,h);g.fillStyle=c;g.fillRect(x,y,w*Math.max(0,Math.min(1,v)),h)}
 function draw(){
  const gw=P.lv==GATE-1&&!P.gk&&P.exp>=need(P.lv);
- g.clearRect(0,0,W,H);g.strokeStyle=FD[FI].gr;
- for(let x=0;x<W;x+=40){g.beginPath();g.moveTo(x,0);g.lineTo(x,H);g.stroke()}
- for(let y=0;y<H;y+=40){g.beginPath();g.moveTo(0,y);g.lineTo(W,y);g.stroke()}
+ g.clearRect(0,0,W,H);if(FD[FI].imOK)g.drawImage(FD[FI].im,0,0,W,H);g.strokeStyle=FD[FI].gr;
+ if(!FD[FI].imOK)for(let x=0;x<W;x+=40){g.beginPath();g.moveTo(x,0);g.lineTo(x,H);g.stroke()}
+ if(!FD[FI].imOK)for(let y=0;y<H;y+=40){g.beginPath();g.moveTo(0,y);g.lineTo(W,y);g.stroke()}
  for(const r of R){g.globalAlpha=Math.max(0,r.t/r.d)*.6;g.fillStyle=r.c;g.beginPath();g.arc(r.x,r.y,r.r,0,7);g.fill()}
  g.globalAlpha=1;
  for(const h of HZ){g.globalAlpha=.25;g.fillStyle='#ff4d4d';g.beginPath();g.arc(h.x,h.y,h.r,0,7);g.fill();g.globalAlpha=.5;g.beginPath();g.arc(h.x,h.y,h.r*(1-h.t/h.d),0,7);g.fill();g.globalAlpha=1;g.strokeStyle='#ff4d4d';g.lineWidth=2;g.beginPath();g.arc(h.x,h.y,h.r,0,7);g.stroke()}
@@ -332,6 +355,7 @@ function draw(){
  bar(14,46,180,8,P.mp/maxMp(),'#4a7bff');g.fillStyle='#fff';g.fillText('MP '+Math.floor(P.mp)+'/'+maxMp(),200,54);g.fillStyle=gw?'#ffb347':'#8fd3ff';g.fillText(P.lv>=50?'EXP MAX':gw?'EXP MAX - 洞窟の最深部のボスを倒してLv'+GATE+'へ!':'EXP '+P.exp+' / '+need(P.lv)+'  (次のLvまで '+(need(P.lv)-P.exp)+')',14,70);g.fillStyle='#ffe27a';if(pts()>0)g.fillText('スキルポイント '+pts()+'  (教会で強化)',14,88);if(stp()>0)g.fillText('ステータスポイント '+stp()+'  (教会で振り分け)',14,104);
  if(B){bar(300,12,480,14,B.hp/B.mh,B.inv>0?'#ffe27a':'#b04adf');g.fillStyle='#fff';g.font='12px sans-serif';g.textAlign='center';g.fillText((B.n||(B.k2?'ボス2':'ボス'))+' Lv'+B.lv+'  '+Math.max(0,Math.ceil(B.hp))+'/'+B.mh,540,42);g.textAlign='left'}
  bar(0,H-8,W,8,P.lv>=50?1:P.exp/need(P.lv),gw?'#ffb347':'#4aa8ff');
+ drawChest();
  if(msg.t>0){g.globalAlpha=Math.min(1,msg.t);g.font='bold 26px sans-serif';g.fillStyle='#ffe27a';g.textAlign='center';g.fillText(msg.s,W/2,110);g.globalAlpha=1}
  if(state=='select'){
   g.fillStyle='#000c';g.fillRect(0,0,W,H);g.fillStyle='#fff';g.textAlign='center';g.font='bold 24px sans-serif';g.fillText('職業を選ぼう',W/2,90);
@@ -344,14 +368,17 @@ function draw(){
  }
 }
 const pick=l=>{let r=Math.random()*l.reduce((a,b)=>a+b[1],0);for(const[k,w]of l)if((r-=w)<0)return k;return l[0][0]};
-function goField(i,side){FI=i;E=[];if(FD[i].town){P.x=tx(792);P.y=ty(730)}else{P.x=side<0?70:W-70;P.y=240}cv.style.background=FD[i].bg;setLoc();talkClear()}
+function goField(i,side,x,y){FI=i;E=[];if(FD[i].town){P.x=tx(792);P.y=ty(730)}else if(x!==undefined){P.x=x;P.y=y}else{P.x=side<0?70:W-70;P.y=240}cv.style.background=FD[i].bg;setLoc();talkClear()}
 function drop(e){let k=0;for(const[id,r]of e.dr)if(Math.random()<r){P.inv[id]=(P.inv[id]||0)+1;const it=ITEMS[id];fl(e.x,e.y-30-k++*16,(r<.15?'★':'+')+it[0],r<.15?'#ffd84a':'#e8ecf5',13)}}
 function drawGate(){
  const f=FD[FI];g.save();g.textAlign='right';g.font='12px sans-serif';g.fillStyle='#8b94a8';
  if(!B){const a=.5+.2*Math.sin(Date.now()/400);
   if(f.town){g.globalAlpha=a;g.fillStyle='#ffe27a';g.fillRect(CR.x,EXY,CR.w,4);g.globalAlpha=1;g.textAlign='center';g.fillText(FD[1].n+' ↓',CR.x+CR.w/2,EXY-6)}
-  else if(FI<FD.length-1){g.globalAlpha=a;g.fillStyle='#ffe27a';g.fillRect(W-10,170,10,140);g.globalAlpha=1;g.fillText(FD[FI+1].n+' →',W-16,162);g.fillText(FD[FI+1].en?'敵 Lv'+FD[FI+1].lv[0]+'〜':'ボス部屋',W-16,330)}
-  if(FI>0&&!f.town){g.globalAlpha=a;g.fillStyle='#7ad9ff';g.fillRect(0,170,10,140);g.globalAlpha=1;g.textAlign='left';g.fillText('← '+FD[FI-1].n,16,162)}
+  else for(const e of f.ex||[]){const b=e.b,fw=e.to>FI,c=fw?'#ffe27a':'#7ad9ff',nm=FD[e.to].n,lv=FD[e.to].en?'敵 Lv'+FD[e.to].lv[0]+'〜':'ボス部屋';g.globalAlpha=a;g.fillStyle=c;g.fillRect(b[0],b[1],b[2],b[3]);g.globalAlpha=1;g.fillStyle=c;
+   if(b[3]<=10&&b[1]<10){g.textAlign='center';g.fillText(nm+' ↑',b[0]+b[2]/2,b[1]+b[3]+14)}
+   else if(b[3]<=10){g.textAlign='center';g.fillText(nm+' ↓',b[0]+b[2]/2,b[1]-22);if(fw)g.fillText(lv,b[0]+b[2]/2,b[1]-8)}
+   else if(b[0]<10){g.textAlign='left';g.fillText('← '+nm,16,b[1]-8)}
+   else{g.textAlign='right';g.fillText(nm+' →',W-16,b[1]-8);g.fillText(lv,W-16,b[1]+b[3]+16)}}
  }
  g.restore();
 }
@@ -504,9 +531,9 @@ function drawTown(){
  for(const n of NPC){g.fillStyle=n.c;g.strokeStyle='#fff';g.lineWidth=2;g.beginPath();g.arc(n.x,n.y,12,0,7);g.fill();g.stroke();g.fillStyle='#fff';g.font='11px sans-serif';g.fillText(n.n,n.x,n.y-18)}
  g.restore();
 }
-const gd=()=>B?0:FD[FI].town?(P.y>EXY&&P.x>CR.x&&P.x<CR.x+CR.w?1:0):Math.abs(P.y-240)>=70?0:P.x>W-50&&FI<FD.length-1?1:P.x<50&&FI>0?-1:0; // 出口の近くなら移動方向(1:次/-1:前)
-function act(){for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60)){n.fn();return}const d=gd();if(d)goField(FI+d,-d)}
-function drawIx(){g.save();g.textAlign='center';g.font='11px sans-serif';g.fillStyle='#ffe27a';for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60))g.fillText(n.hint||'E: 話す',n.x,n.y+28);const d=gd();if(d){const tw=FD[FI].town,x=tw?CR.x+CR.w/2:d>0?W-70:70,y=tw?EXY-22:236;g.fillText('E: 移動',x,y);if(!tw)g.fillText(FD[FI+d].n,x,y+16)}g.restore()}
+const gd=()=>{if(B)return 0;const f=FD[FI];if(f.town)return P.y>EXY&&P.x>CR.x&&P.x<CR.x+CR.w?{to:1,p:[400,70]}:0;for(const e of f.ex||[])if(P.x>=e.r[0]&&P.x<=e.r[2]&&P.y>=e.r[1]&&P.y<=e.r[3])return e;return 0}; // 出口の近くなら、その出口を返す
+function act(){for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60)){n.fn();return}const e=gd();if(e)goField(e.to,0,e.p[0],e.p[1])}
+function drawIx(){g.save();g.textAlign='center';g.font='11px sans-serif';g.fillStyle='#ffe27a';for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60))g.fillText(n.hint||'E: 話す',n.x,n.y+28);const e=gd();if(e){const tw=FD[FI].town;let x,y;if(tw){x=CR.x+CR.w/2;y=EXY-22}else{x=Math.max(70,Math.min(W-70,(e.r[0]+e.r[2])/2));y=e.r[1]<10?e.r[3]+20:e.r[3]>H-10?e.r[1]-34:236}g.fillText('E: 移動',x,y);if(!tw)g.fillText(FD[e.to].n,x,y+16)}g.restore()}
 let MT=0,MC=0;
 const OWN=()=>['w','a','s'].flatMap(t=>RC.filter(r=>P.cr[r.id]&&r.t==t).sort((a,b)=>a.v-b.v));
 function equipCur(){const r=OWN()[MC];if(r)P.eq[r.t]=P.eq[r.t]==r?null:r}
@@ -543,12 +570,12 @@ function drawMenu(){
  g.textAlign='center';g.fillStyle='#8b94a8';g.font='13px sans-serif';g.fillText('←→ か A/D でタブ切替 ・ '+(MT==0?'↑↓ で選ぶ ・ E で装備/はずす ・ ':'')+'Tab か Esc で閉じる',W/2,H-16);
 }
 let chm='',DBH=null,UID=null,touch=0,LOCALT=0,saving=0;
-const snap=()=>({v:1,t:Date.now(),lv:P.lv,exp:P.exp,job:P.job,sk:P.sk,ba:P.ba,st:P.st,inv:P.inv,eq:{w:P.eq.w?P.eq.w.id:null,a:P.eq.a?P.eq.a.id:null,s:P.eq.s?P.eq.s.id:null},cr:P.cr,gk:P.gk,gold:P.gold,it:P.it});
+const snap=()=>({v:1,t:Date.now(),lv:P.lv,exp:P.exp,job:P.job,sk:P.sk,ba:P.ba,st:P.st,inv:P.inv,eq:{w:P.eq.w?P.eq.w.id:null,a:P.eq.a?P.eq.a.id:null,s:P.eq.s?P.eq.s.id:null},cr:P.cr,gk:P.gk,gold:P.gold,it:P.it,ch:P.ch});
 function applySave(d){
  if(!d||!Number.isFinite(d.lv))return false;
  P.lv=Math.max(1,Math.min(50,d.lv));P.exp=d.exp||0;P.job=JOBS[d.job]?d.job:'none';P.sk=[0,1].map(i=>(d.sk&&d.sk[i])||1);P.ba=d.ba||1;
  P.st=[0,1,2,3,4].map(i=>(d.st&&d.st[i])||0);
- P.inv=d.inv||{};P.cr=d.cr||{};P.gk=d.gk?1:0;P.gold=d.gold||0;P.it=d.it||{};
+ P.inv=d.inv||{};P.cr=d.cr||{};P.gk=d.gk?1:0;P.gold=d.gold||0;P.it=d.it||{};P.ch=d.ch||{};
  const e=d.eq||{};P.eq={w:RC.find(r=>r.id==e.w)||null,a:RC.find(r=>r.id==e.a)||null,s:RC.find(r=>r.id==e.s)||null};
  P.hp=maxHp();P.mp=maxMp();goField(0,-1);state=(P.lv>=10&&P.job=='none')?'select':'play';return true;
 }
