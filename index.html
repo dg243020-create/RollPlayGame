@@ -108,12 +108,14 @@ addEventListener('keydown',e=>{
   return}
  if(state=='smith'){if(e.code=='Escape'||e.code=='KeyE')state='play';else if(/^Digit[1-9]$/.test(e.code))craft(+e.code.slice(-1)-1);return}
  if(state=='shop'){
-  if(e.code=='Escape'||e.code=='Tab'){state='play';return}
+  // 閉じる: E(長押しの連打で開いた直後に閉じないよう repeat は無視) / 売買: Enter(Shift+Enterで10個)
+  if(e.code=='Escape'||e.code=='Tab'||(e.code=='KeyE'&&!e.repeat)){state='play';shp=null;return}
+  if(e.code!='Enter'&&!e.code.startsWith('Shift'))shp=null; // 警告の確認待ちは、操作を変えたら解除
   if(e.code=='KeyA'||e.code=='ArrowLeft'||e.code=='KeyD'||e.code=='ArrowRight'||e.code=='Digit1'||e.code=='Digit2'){SM=e.code=='Digit1'?0:e.code=='Digit2'?1:1-SM;SC=0;shm='';return}
   const n=SM?sl().length:POT.length;
   if(n&&(e.code=='KeyW'||e.code=='ArrowUp'))SC=(SC+n-1)%n;
   else if(n&&(e.code=='KeyS'||e.code=='ArrowDown'))SC=(SC+1)%n;
-  else if(e.code=='KeyE'||e.code=='Enter')trade(e.shiftKey?10:1);
+  else if(e.code=='Enter')trade(e.shiftKey?10:1);
   return}
  if(state=='skills'||state=='stats'){
   if(e.code=='Escape'||(e.code=='KeyT'&&state=='skills')||(e.code=='KeyY'&&state=='stats'))state='church';
@@ -231,7 +233,7 @@ function update(dt){
  let dx=(K.KeyD||K.ArrowRight?1:0)-(K.KeyA||K.ArrowLeft?1:0),dy=(K.KeyS||K.ArrowDown?1:0)-(K.KeyW||K.ArrowUp?1:0);
  if(dx&&dy){dx*=.707;dy*=.707}if(dx)P.face=dx>0?1:-1;
  P.x=Math.max(14,Math.min(W-14,P.x+dx*(170+P.st[4]*.8)*dt));P.y=Math.max(14,Math.min(H-14,P.y+dy*(170+P.st[4]*.8)*dt));
- if(FD[FI].town)for(const b of BLD)if(P.x>b.x-14&&P.x<b.x+b.w+14&&P.y>b.y-14&&P.y<b.y+b.h+14){P.x=px;P.y=py}
+ if(FD[FI].town&&okT(px,py)){const nx=P.x,ny=P.y;P.x=nx;P.y=py;if(!okT(P.x,P.y))P.x=px;P.y=ny;if(!okT(P.x,P.y))P.y=py}
  P.cd=P.cd.map(c=>Math.max(0,c-dt));P.pcd=Math.max(0,P.pcd-dt);P.hit=Math.max(0,P.hit-dt);P.mp=Math.min(maxMp(),P.mp+(3+maxMp()*.03)*dt);
  if(K.Space||K.KeyJ)use(0);if(K.KeyK)use(1);if(K.KeyL)use(2);
  if(!B&&FD[FI].boss&&!P.gk)startBoss();
@@ -289,26 +291,40 @@ function draw(){
  }
 }
 const pick=l=>{let r=Math.random()*l.reduce((a,b)=>a+b[1],0);for(const[k,w]of l)if((r-=w)<0)return k;return l[0][0]};
-function goField(i,side){FI=i;E=[];P.x=side<0?70:W-70;P.y=240;cv.style.background=FD[i].bg;say(FD[i].n)}
+function goField(i,side){FI=i;E=[];if(FD[i].town){P.x=tx(792);P.y=ty(730)}else{P.x=side<0?70:W-70;P.y=240}cv.style.background=FD[i].bg;say(FD[i].n)}
 function drop(e){let k=0;for(const[id,r]of e.dr)if(Math.random()<r){P.inv[id]=(P.inv[id]||0)+1;const it=ITEMS[id];fl(e.x,e.y-30-k++*16,(r<.15?'★':'+')+it[0],r<.15?'#ffd84a':'#e8ecf5',13)}}
 function drawGate(){
  const f=FD[FI];g.save();g.textAlign='right';g.font='12px sans-serif';g.fillStyle='#8b94a8';
  g.fillText(f.n+(f.en?' (敵 Lv'+f.lv[0]+'〜'+f.lv[1]+')':''),W-14,64);
  if(!B){const a=.5+.2*Math.sin(Date.now()/400);
-  if(FI<FD.length-1){g.globalAlpha=a;g.fillStyle='#ffe27a';g.fillRect(W-10,170,10,140);g.globalAlpha=1;g.fillText(FD[FI+1].n+' →',W-16,162);g.fillText(FD[FI+1].en?'敵 Lv'+FD[FI+1].lv[0]+'〜':'ボス部屋',W-16,330)}
-  if(FI>0){g.globalAlpha=a;g.fillStyle='#7ad9ff';g.fillRect(0,170,10,140);g.globalAlpha=1;g.textAlign='left';g.fillText('← '+FD[FI-1].n,16,162)}
+  if(f.town){g.globalAlpha=a;g.fillStyle='#ffe27a';g.fillRect(CR.x,EXY,CR.w,4);g.globalAlpha=1;g.textAlign='center';g.fillText(FD[1].n+' ↓',CR.x+CR.w/2,EXY-6)}
+  else if(FI<FD.length-1){g.globalAlpha=a;g.fillStyle='#ffe27a';g.fillRect(W-10,170,10,140);g.globalAlpha=1;g.fillText(FD[FI+1].n+' →',W-16,162);g.fillText(FD[FI+1].en?'敵 Lv'+FD[FI+1].lv[0]+'〜':'ボス部屋',W-16,330)}
+  if(FI>0&&!f.town){g.globalAlpha=a;g.fillStyle='#7ad9ff';g.fillRect(0,170,10,140);g.globalAlpha=1;g.textAlign='left';g.fillText('← '+FD[FI-1].n,16,162)}
  }
  g.restore();
 }
-const BLD=[{x:90,y:90,w:150,h:90,c:'#a8a0c0',n:'教会'},{x:330,y:90,w:140,h:90,c:'#4a6a8a',n:'道具屋'},{x:570,y:90,w:150,h:90,c:'#7a4a4a',n:'鍛冶屋'}];
+// ===== 始まりの町: 画像 mati1.png(1584x864)に合わせた配置 =====
+// 座標は画像のピクセル値。tx/ty で画面(800x480)に変換する。画像は幅に合わせて下寄せ(上の余りは森の色で埋める)
+const IMW=1584,IMH=864,TS=W/IMW,TOY=H-IMH*TS,tx=v=>v*TS,ty=v=>v*TS+TOY;
+const TR=(x1,y1,x2,y2,o)=>({x:tx(x1),y:ty(y1),w:(x2-x1)*TS,h:(y2-y1)*TS,...o});
+const BLD=[TR(70,72,433,289,{c:'#a8a0c0',n:'教会'}),TR(570,66,1014,368,{c:'#7a4a4a',n:'鍛冶屋'}),TR(1150,72,1513,289,{c:'#4a6a8a',n:'道具屋'}),TR(1448,720,1509,791,{c:'#c9a24a',n:'宝箱'})]; // 入れない場所
+const WK=TR(70,72,1510,792,{}),CR=TR(646,792,934,864,{}); // 歩ける範囲(広場 / 南の出口へ続く道)
+const EXY=H-72; // 南の道のこの高さより下で E を押すと次のフィールドへ
+const okT=(x,y)=>{const r=14;
+ if(x>=WK.x+r&&x<=WK.x+WK.w-r&&y>=WK.y+r&&y<=WK.y+WK.h-r){for(const b of BLD)if(x>b.x-r&&x<b.x+b.w+r&&y>b.y-r&&y<b.y+b.h+r)return 0;return 1}
+ return x>=CR.x+r&&x<=CR.x+CR.w-r&&y>=WK.y+WK.h-30&&y<=H-r};
+const TOWNIMG=new Image();let TOWNOK=0;TOWNIMG.onload=()=>TOWNOK=1;TOWNIMG.src='RPG/mati1.png';
 const NPC=[
- {x:165,y:205,n:'神父',c:'#e8e4f0',hint:'E: 祈る',fn:()=>{state='church';chm=''}},
- {x:400,y:205,n:'道具屋',c:'#7ad9ff',hint:'E: 買い物',fn:()=>{state='shop';SM=0;SC=0;shm=''}},
- {x:645,y:205,n:'鍛冶屋',c:'#e0453f',hint:'E: 作る',fn:()=>{state='smith';smm=''}},
- {x:400,y:350,n:'町の人',c:'#d8d2c0',fn:()=>{msg={t:3,s:'町の人: ようこそ、始まりの町へ!'}}}];
-FD[0].ix=NPC; // Eキーで反応する物(NPC・ドアなど)。fn が実行される
-let smm='',SM=0,SC=0,shm='';
+ {x:tx(252),y:ty(318),n:'神父',c:'#e8e4f0',hint:'E: 祈る',fn:()=>{state='church';chm=''}},
+ {x:tx(1334),y:ty(318),n:'道具屋',c:'#7ad9ff',hint:'E: 買い物',fn:()=>{state='shop';SM=0;SC=0;shm='';shp=null}},
+ {x:tx(792),y:ty(405),n:'鍛冶屋',c:'#e0453f',hint:'E: 作る',fn:()=>{state='smith';smm=''}},
+ {x:tx(500),y:ty(610),n:'町の人',c:'#d8d2c0',fn:()=>{msg={t:3,s:'町の人: ようこそ、始まりの町へ!'}}}];
+FD[0].ix=[...NPC,{x:tx(1478),y:ty(755),r:50,hint:'E: 調べる',fn:()=>{msg={t:3,s:'宝箱だ。鍵がかかっている…(仮)'}}}]; // Eキーで反応する物(NPC・宝箱など)。fn が実行される
+let smm='',SM=0,SC=0,shm='',shp=null; // shp: 売却警告の確認待ち {k,q}
 const sl=()=>Object.keys(P.inv).filter(k=>P.inv[k]>0&&SELL[k]);
+// 未作成のレシピで必要な素材の合計数 / そのレシピ名
+const keepN=k=>RC.reduce((a,r)=>a+(!P.cr[r.id]&&r.m[k]?r.m[k]:0),0);
+const keepR=k=>RC.filter(r=>!P.cr[r.id]&&r.m[k]).map(r=>r.n);
 function trade(q){
  if(!SM){
   const t=POT[SC];if(!t)return;
@@ -317,19 +333,29 @@ function trade(q){
   P.gold-=q*t.p;P.it[t.id]=(P.it[t.id]||0)+q;shm=t.n+'を'+q+'個買った';
  }else{
   const l=sl(),k=l[SC];if(!k)return;
-  q=Math.min(q,P.inv[k]);P.gold+=q*SELL[k];P.inv[k]-=q;shm=ITEMS[k][0]+'を'+q+'個売った (+'+q*SELL[k]+'G)';
+  q=Math.min(q,P.inv[k]);
+  const kp=keepN(k);
+  // 売ると鍛冶屋で必要な数を下回る場合は、もう一度同じ操作をしたときだけ売る
+  if(kp>0&&P.inv[k]-q<kp&&!(shp&&shp.k==k&&shp.q==q)){
+   shp={k,q};const rs=keepR(k);
+   shm='⚠ '+ITEMS[k][0]+'は鍛冶屋で必要('+rs.slice(0,2).join('・')+(rs.length>2?'など':'')+'に計'+kp+'個)。売るならもう一度Enter';return}
+  shp=null;
+  P.gold+=q*SELL[k];P.inv[k]-=q;shm=ITEMS[k][0]+'を'+q+'個売った (+'+q*SELL[k]+'G)';
   SC=Math.min(SC,Math.max(0,sl().length-1));
  }
 }
 function drawShop(){
  g.fillStyle='#000d';g.fillRect(0,0,W,H);g.textAlign='center';g.fillStyle='#fff';g.font='bold 24px sans-serif';g.fillText('道具屋',W/2,38);
  g.font='14px sans-serif';g.fillStyle='#ffd84a';g.fillText('所持金 '+P.gold+' G',W/2,60);
+ if(SM){g.textAlign='right';g.font='12px sans-serif';g.fillStyle='#ffb347';g.fillText('橙=未作成の装備に必要な素材',740,60);g.textAlign='center'}
  ['1  買う','2  売る'].forEach((n,i)=>{const x=200+i*210;g.fillStyle=i==SM?'#ffe27a':'#2c3a52';g.fillRect(x,70,190,28);g.fillStyle=i==SM?'#10141f':'#8b94a8';g.font='bold 14px sans-serif';g.fillText(n,x+95,90)});
  g.textAlign='left';
  if(!SM)POT.forEach((t,i)=>{const y=112+i*50,s=i==SC,ok=P.gold>=t.p;g.fillStyle=s?'#ffe27a':'#2c3a52';g.fillRect(60,y,680,44);g.fillStyle='#10141f';g.fillRect(62,y+2,676,40);g.fillStyle=ok?'#fff':'#8b94a8';g.font='bold 15px sans-serif';g.fillText((s?'▶ ':'   ')+t.n+'  '+t.p+' G',76,y+20);g.font='12px sans-serif';g.fillStyle='#8b94a8';g.fillText('   '+t.d+'  (所持 '+(P.it[t.id]||0)+')',76,y+37)});
  else{const l=sl();if(!l.length){g.fillStyle='#8b94a8';g.font='14px sans-serif';g.fillText('売れる素材がない',60,130)}
-  l.forEach((k,i)=>{const x=60+(i/11|0)*350,y=108+(i%11)*30,s=i==SC;g.fillStyle=s?'#ffe27a':'#2c3a52';g.fillRect(x,y,330,26);g.fillStyle='#10141f';g.fillRect(x+2,y+2,326,22);g.fillStyle=ITEMS[k][1];g.fillRect(x+8,y+7,10,10);g.fillStyle='#e8ecf5';g.font='13px sans-serif';g.textAlign='left';g.fillText(ITEMS[k][0]+' x'+P.inv[k],x+26,y+18);g.textAlign='right';g.fillStyle='#ffd84a';g.fillText(SELL[k]+' G',x+320,y+18);g.textAlign='left'})}
- g.textAlign='center';g.fillStyle='#ffe27a';g.font='13px sans-serif';g.fillText(shm,W/2,H-34);g.fillStyle='#8b94a8';g.fillText('←→で買う/売る ・ ↑↓で選ぶ ・ E で1個 ・ Shift+E で10個 ・ Esc で閉じる',W/2,H-14);
+  l.forEach((k,i)=>{const x=60+(i/11|0)*350,y=108+(i%11)*30,s=i==SC,kp=keepN(k);g.fillStyle=s?'#ffe27a':'#2c3a52';g.fillRect(x,y,330,26);g.fillStyle='#10141f';g.fillRect(x+2,y+2,326,22);g.fillStyle=ITEMS[k][1];g.fillRect(x+8,y+7,10,10);g.fillStyle='#e8ecf5';g.font='13px sans-serif';g.textAlign='left';g.fillText(ITEMS[k][0]+' x'+P.inv[k],x+26,y+18);
+   if(kp>0){g.textAlign='right';g.font='11px sans-serif';g.fillStyle='#ffb347';g.fillText('鍛冶用 '+kp,x+250,y+18);g.font='13px sans-serif'}
+   g.textAlign='right';g.fillStyle='#ffd84a';g.fillText(SELL[k]+' G',x+320,y+18);g.textAlign='left'})}
+ g.textAlign='center';g.fillStyle=shp?'#ffb347':'#ffe27a';g.font='13px sans-serif';g.fillText(shm,W/2,H-34);g.fillStyle='#8b94a8';g.fillText('←→で買う/売る ・ ↑↓で選ぶ ・ Enter で1個 ・ Shift+Enter で10個 ・ E で閉じる',W/2,H-14);
 }
 const RC=[
  {id:'w1',n:'ラビットダガー',t:'w',v:4,m:{fur:5,gel:5}},
@@ -362,13 +388,16 @@ function drawSmith(){
 function drawTown(){
  if(!FD[FI].town)return;
  g.save();g.textAlign='center';
- for(const b of BLD){g.fillStyle=b.c;g.fillRect(b.x,b.y,b.w,b.h);g.fillStyle='#0004';g.fillRect(b.x,b.y,b.w,22);g.fillStyle='#10141f';g.fillRect(b.x+b.w/2-12,b.y+b.h-34,24,34);g.fillStyle='#fff';g.font='bold 14px sans-serif';g.fillText(b.n,b.x+b.w/2,b.y+16)}
+ if(TOWNOK){g.fillStyle='#12421e';g.fillRect(0,0,W,TOY+1);g.drawImage(TOWNIMG,0,TOY,W,IMH*TS)}
+ else{ // 画像が読めないときの仮表示
+  g.fillStyle='#12421e';g.fillRect(0,0,W,H);g.fillStyle='#3a372f';g.fillRect(WK.x,WK.y,WK.w,WK.h);g.fillRect(CR.x,CR.y,CR.w,CR.h);
+  for(const b of BLD){g.fillStyle=b.c;g.fillRect(b.x,b.y,b.w,b.h);g.fillStyle='#fff';g.font='bold 14px sans-serif';g.fillText(b.n,b.x+b.w/2,b.y+16)}}
  for(const n of NPC){g.fillStyle=n.c;g.strokeStyle='#fff';g.lineWidth=2;g.beginPath();g.arc(n.x,n.y,12,0,7);g.fill();g.stroke();g.fillStyle='#fff';g.font='11px sans-serif';g.fillText(n.n,n.x,n.y-18)}
  g.restore();
 }
-const gd=()=>B||Math.abs(P.y-240)>=70?0:P.x>W-50&&FI<FD.length-1?1:P.x<50&&FI>0?-1:0; // 出口の近くなら移動方向(1:次/-1:前)
+const gd=()=>B?0:FD[FI].town?(P.y>EXY&&P.x>CR.x&&P.x<CR.x+CR.w?1:0):Math.abs(P.y-240)>=70?0:P.x>W-50&&FI<FD.length-1?1:P.x<50&&FI>0?-1:0; // 出口の近くなら移動方向(1:次/-1:前)
 function act(){for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60)){n.fn();return}const d=gd();if(d)goField(FI+d,-d)}
-function drawIx(){g.save();g.textAlign='center';g.font='11px sans-serif';g.fillStyle='#ffe27a';for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60))g.fillText(n.hint||'E: 話す',n.x,n.y+28);const d=gd();if(d){const x=d>0?W-70:70;g.fillText('E: 移動',x,236);g.fillText(FD[FI+d].n,x,252)}g.restore()}
+function drawIx(){g.save();g.textAlign='center';g.font='11px sans-serif';g.fillStyle='#ffe27a';for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60))g.fillText(n.hint||'E: 話す',n.x,n.y+28);const d=gd();if(d){const tw=FD[FI].town,x=tw?CR.x+CR.w/2:d>0?W-70:70,y=tw?EXY-34:236;g.fillText('E: 移動',x,y);g.fillText(FD[FI+d].n,x,y+16)}g.restore()}
 let MT=0,MC=0;
 const OWN=()=>[...RC.filter(r=>P.cr[r.id]&&r.t=='w'),...RC.filter(r=>P.cr[r.id]&&r.t=='a')];
 function equipCur(){const r=OWN()[MC];if(r)P.eq[r.t]=P.eq[r.t]==r?null:r}
@@ -412,7 +441,7 @@ function applySave(d){
 let NET=null; // Firebase連携(下のmodule側で設定)
 function beginGame(d){
  document.getElementById('login').style.display='none';
- if(d&&applySave(d)){P.x=165;P.y=250}else state='play';
+ if(d&&applySave(d)){P.x=tx(252);P.y=ty(345)}else state='play';
 }
 async function saveGame(){
  if(saving||!NET)return;saving=1;
@@ -456,6 +485,7 @@ function drawPanel(){
   g.textAlign='right';g.fillStyle=r[3]?'#8b94a8':'#ffe27a';g.font='bold 15px sans-serif';g.fillText(r[2],700,y+h/2+4)});
  g.textAlign='center';g.fillStyle='#8b94a8';g.font='13px sans-serif';g.fillText(hint,W/2,H-22);
 }
+P.x=tx(792);P.y=ty(560);
 state='login';
 let last=performance.now();
 function loop(n){const dt=Math.min(.05,(n-last)/1000);last=n;if(state=='play')update(dt);draw();if(state=='skills'||state=='stats')drawPanel();if(state=='menu')drawMenu();if(state=='church')drawChurch();if(state=='smith')drawSmith();if(state=='shop')drawShop();requestAnimationFrame(loop)}
