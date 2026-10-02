@@ -17,7 +17,7 @@ p{margin:0;color:var(--mut);text-align:center;padding:0 12px;max-width:800px}
 </style></head><body>
 <div id="login"><div class="card"><h1>RPG プロトタイプ</h1><p id="lmsg">Googleアカウントでログインして、続きから始めよう。</p><button id="lbtn">Googleでログイン</button></div></div>
 <canvas id="c" width="800" height="480"></canvas>
-<p>移動: WASD / 矢印キー ・ 攻撃: Space ・ スキル: K / L<br>デバッグ: <b>+</b> <b>-</b> でレベル変更 ・ <b>0</b> でLv10 ・ <b>5</b> でLv50 ・ <b>B</b> でボス1 ・ <b>V</b> でボス2(もう一度押すと撤退) ・ <b>F</b> でフィールド切替 ・ <b>Tab</b> でメニュー(ステータス・装備・素材) ・ <b>E</b> アクション(会話・教会・鍛冶屋など。スキル強化・ステータス振り分け・セーブは教会で)<br>Lv9で経験値が満タンになったら、洞窟の最深部のボスを倒すとLv10に上がります</p>
+<p>移動: WASD / 矢印キー ・ 攻撃: Space ・ スキル: K / L ・ 道具: <b>1</b> <b>2</b> <b>3</b><br>デバッグ: <b>+</b> <b>-</b> でレベル変更 ・ <b>0</b> でLv10 ・ <b>5</b> でLv50 ・ <b>B</b> でボス1 ・ <b>V</b> でボス2(もう一度押すと撤退) ・ <b>F</b> でフィールド切替 ・ <b>Tab</b> でメニュー(ステータス・装備・素材) ・ <b>E</b> アクション(会話・教会・鍛冶屋・道具屋・光る出口の前でフィールド移動。スキル強化・ステータス振り分け・セーブは教会で)<br>Lv9で経験値が満タンになったら、洞窟の最深部のボスを倒すとLv10に上がります</p>
 <script>
 const cv=document.getElementById('c'),g=cv.getContext('2d'),W=800,H=480;
 const JOBS={
@@ -52,13 +52,21 @@ const TY={
  magma:{n:'マグマスライム',c:'#ff5a2a',r:15,hp:2,dm:1.4,sp:.6,xp:2,dr:[['ember',.55],['heart',.05]]}
 };
 const ITEMS={gel:['スライムゼリー','#5ec26a'],bgel:['青いゼリー','#4a9bff'],fur:['ウサギの毛皮','#e8d9b8'],tail:['幸運のしっぽ','#ffd84a'],fang:['狼の牙','#cfd4dc'],sfur:['銀の毛皮','#c0c8d8'],mush:['毒きのこ','#c05a8f'],spore:['輝く胞子','#7dff9d'],honey:['はちみつ','#e8c23a'],sting:['女王の針','#ffd84a'],wing:['コウモリの羽','#8a7ac0'],mwing:['月光の羽','#cfe8ff'],stone:['石のかけら','#9a8f80'],gcore:['ゴーレムの核','#ffd84a'],silk:['蜘蛛の糸','#dcdcdc'],venom:['猛毒の牙','#8aff6a'],horn:['小鬼の角','#e0453f'],more:['魔鉱石','#9b59e0'],scale:['炎の鱗','#e07a3f'],tear:['竜の涙','#7ad9ff'],ember:['溶岩の欠片','#ff5a2a'],heart:['火山の心臓','#ff3a3a']};
+// 素材の売値(ゴールド)
+const SELL={gel:3,bgel:40,fur:4,tail:45,fang:8,sfur:70,mush:7,spore:80,honey:8,sting:90,wing:10,mwing:110,stone:10,gcore:130,silk:12,venom:140,horn:18,more:180,scale:20,tear:220,ember:22,heart:260};
+// 道具屋で買える道具(キー1/2/3で使用)
+const POT=[
+ {id:'pot',n:'ポーション',k:'hp',r:.4,p:30,d:'HPを40%回復'},
+ {id:'eth',n:'エーテル',k:'mp',r:.4,p:40,d:'MPを40%回復'},
+ {id:'hpot',n:'ハイポーション',k:'hp',r:.8,p:110,d:'HPを80%回復'}];
 let FI=0;cv.style.background=FD[0].bg;
-const K={};let P={x:400,y:240,lv:1,exp:0,job:'none',hp:16,cd:[0,0,0],sk:[1,1],ba:1,st:[0,0,0,0,0],mp:999,face:1,hit:0,gk:0,gm:0,inv:{},eq:{w:null,a:null},cr:{}},E=[],HZ=[],B=null,F=[],R=[],state='play',msg={t:0,s:''};
+const K={};let P={x:400,y:240,lv:1,exp:0,job:'none',hp:16,cd:[0,0,0],sk:[1,1],ba:1,st:[0,0,0,0,0],mp:999,face:1,hit:0,gk:0,gm:0,inv:{},eq:{w:null,a:null},cr:{},gold:0,it:{},pcd:0},E=[],HZ=[],B=null,F=[],R=[],state='play',msg={t:0,s:''};
 const J=()=>JOBS[P.job],need=l=>10+l*l*3,maxHp=()=>J().hp+P.lv*4+P.st[0]*3,maxMp=()=>20+P.lv*2+P.st[1]*2,aInt=()=>{const a=J().a;return Math.max(a[2],a[0]-a[1]*P.lv)*(1-.02*(P.ba-1))},aMul=()=>{const a=J().a;return (a[3]+a[4]*P.lv)*(1+.08*(P.ba-1))};
 const stp=()=>(P.lv-1)*3-P.st.reduce((a,b)=>a+b,0),pts=()=>P.lv-1-(P.ba-1)-(P.sk[0]-1)-(P.sk[1]-1),sm=(s,i)=>(s.m||0)*(1+.12*(P.sk[i]-1)),scd=(s,i)=>s.cd*(1-.03*(P.sk[i]-1)),sh=(s,i)=>(s.heal||0)*(1+.05*(P.sk[i]-1))*(1+.02*P.st[3]);
 const say=s=>msg={t:2.4,s};
 const fl=(x,y,tx,c,sz)=>F.push({x,y,tx,c,sz,t:1});
 const ring=(x,y,r,c,d=.35)=>R.push({x,y,r,c,t:d,d});
+const addG=n=>{P.gold+=n;fl(P.x,P.y-52,'+'+n+'G','#ffd84a',13)};
 P.hp=maxHp();
 let PJ=[],LS=[],U=null;const clr=()=>{HZ=[];PJ=[];LS=[];U=null};
 function setLv(l){P.lv=Math.max(1,Math.min(50,l));P.exp=0;P.gk=P.lv>=GATE?1:0;P.gm=0;if(P.lv<10)P.job='none';if(pts()<0||P.job=='none')P.sk=[1,1];if(pts()<0)P.ba=1;if(stp()<0)P.st=[0,0,0,0,0];P.hp=maxHp();if(P.lv>=10&&P.job=='none')state='select'}
@@ -99,6 +107,14 @@ addEventListener('keydown',e=>{
   else if(MT==0){const n=OWN().length;if(n){if(e.code=='KeyW'||e.code=='ArrowUp')MC=(MC+n-1)%n;else if(e.code=='KeyS'||e.code=='ArrowDown')MC=(MC+1)%n;else if(e.code=='KeyE'||e.code=='Enter')equipCur()}}
   return}
  if(state=='smith'){if(e.code=='Escape'||e.code=='KeyE')state='play';else if(/^Digit[1-9]$/.test(e.code))craft(+e.code.slice(-1)-1);return}
+ if(state=='shop'){
+  if(e.code=='Escape'||e.code=='Tab'){state='play';return}
+  if(e.code=='KeyA'||e.code=='ArrowLeft'||e.code=='KeyD'||e.code=='ArrowRight'||e.code=='Digit1'||e.code=='Digit2'){SM=e.code=='Digit1'?0:e.code=='Digit2'?1:1-SM;SC=0;shm='';return}
+  const n=SM?sl().length:POT.length;
+  if(n&&(e.code=='KeyW'||e.code=='ArrowUp'))SC=(SC+n-1)%n;
+  else if(n&&(e.code=='KeyS'||e.code=='ArrowDown'))SC=(SC+1)%n;
+  else if(e.code=='KeyE'||e.code=='Enter')trade(e.shiftKey?10:1);
+  return}
  if(state=='skills'||state=='stats'){
   if(e.code=='Escape'||(e.code=='KeyT'&&state=='skills')||(e.code=='KeyY'&&state=='stats'))state='church';
   else if(e.code=='KeyT')state='skills';
@@ -110,6 +126,7 @@ addEventListener('keydown',e=>{
   }
   return;
  }
+ const pi={Digit1:0,Digit2:1,Digit3:2}[e.code];if(pi!==undefined){usePot(pi);return}
  if(e.code=='KeyB'){if(B){E=[];B=null;clr();say('撤退した')}else startBoss();return}
  if(e.code=='KeyV'){if(B){E=[];B=null;clr();say('撤退した')}else startBoss2();return}
  if(e.code=='Tab'){state='menu';MC=0;return}
@@ -126,7 +143,7 @@ function hurt(e,m){
  if(e.inv>0){const t=performance.now();if(t-(e.ft||0)>400){e.ft=t;fl(e.x,e.y-14,'無敵','#ffe27a',15)}return}
  const cr=Math.random()<.15,d=Math.round((J().atk+(P.eq.w?P.eq.w.v:0)+P.lv*1.6)*(1+.02*P.st[J().mg?3:2])*m*(.9+Math.random()*.2)*(cr?2:1));
  e.hp-=d;e.fl=.1;fl(e.x,e.y-14,d+(cr?'!':''),cr?'#ffd84a':'#fff',cr?24:15);
- if(e.hp<=0){E.splice(E.indexOf(e),1);if(e.boss){B=null;clr();say('ボス撃破!');if(!e.k2&&P.lv==GATE-1&&!P.gk){P.gk=1;say('試練達成!')}gain(Math.round(need(P.lv)*(e.k2?1.2:.8)))}else{gain(Math.round((4+e.lv*2)*(e.xp||1)));drop(e)}}
+ if(e.hp<=0){E.splice(E.indexOf(e),1);if(e.boss){B=null;clr();say('ボス撃破!');if(!e.k2&&P.lv==GATE-1&&!P.gk){P.gk=1;say('試練達成!')}gain(Math.round(need(P.lv)*(e.k2?1.2:.8)));addG(e.k2?400:250)}else{gain(Math.round((4+e.lv*2)*(e.xp||1)));addG(Math.round((2+e.lv*1.2)*(e.xp||1)));drop(e)}}
 }
 function use(i){
  if(P.cd[i]>0)return;const j=J();
@@ -143,6 +160,13 @@ function use(i){
  ring(cx,cy,s.r,j.c,.45);
  for(const e of [...E])if(Math.hypot(e.x-cx,e.y-cy)<s.r+10+(e.rad||0))hurt(e,sm(s,i-1));
  if(s.h)P.hp=Math.min(maxHp(),P.hp+Math.ceil(maxHp()*s.h*(1+.02*P.st[3])));
+}
+function usePot(i){
+ const t=POT[i];if(!t||P.pcd>0||!(P.it[t.id]>0))return;
+ const hp=t.k=='hp';if(hp?P.hp>=maxHp():P.mp>=maxMp()){fl(P.x,P.y-24,hp?'HP満タン':'MP満タン','#8fd3ff',14);return}
+ P.it[t.id]--;P.pcd=1.5;
+ if(hp)P.hp=Math.min(maxHp(),P.hp+Math.round(maxHp()*t.r));else P.mp=Math.min(maxMp(),P.mp+Math.round(maxMp()*t.r));
+ fl(P.x,P.y-24,t.n,'#7dff9d',16);ring(P.x,P.y,50,hp?'#7dff9d':'#4a7bff',.3);
 }
 function startBoss(){
  const lv=10,h=Math.round((10+lv*6+lv**3*.02)*20);
@@ -208,10 +232,9 @@ function update(dt){
  if(dx&&dy){dx*=.707;dy*=.707}if(dx)P.face=dx>0?1:-1;
  P.x=Math.max(14,Math.min(W-14,P.x+dx*(170+P.st[4]*.8)*dt));P.y=Math.max(14,Math.min(H-14,P.y+dy*(170+P.st[4]*.8)*dt));
  if(FD[FI].town)for(const b of BLD)if(P.x>b.x-14&&P.x<b.x+b.w+14&&P.y>b.y-14&&P.y<b.y+b.h+14){P.x=px;P.y=py}
- P.cd=P.cd.map(c=>Math.max(0,c-dt));P.hit=Math.max(0,P.hit-dt);P.mp=Math.min(maxMp(),P.mp+(3+maxMp()*.03)*dt);
+ P.cd=P.cd.map(c=>Math.max(0,c-dt));P.pcd=Math.max(0,P.pcd-dt);P.hit=Math.max(0,P.hit-dt);P.mp=Math.min(maxMp(),P.mp+(3+maxMp()*.03)*dt);
  if(K.Space||K.KeyJ)use(0);if(K.KeyK)use(1);if(K.KeyL)use(2);
  if(!B&&FD[FI].boss&&!P.gk)startBoss();
- if(!B){if(P.x>W-24&&FI<FD.length-1&&Math.abs(P.y-240)<70)goField(FI+1,-1);else if(P.x<24&&FI>0&&Math.abs(P.y-240)<70)goField(FI-1,1)}
  while(!B&&FD[FI].en&&E.length<6)spawn();
  for(const e of E){
   const d=Math.hypot(P.x-e.x,P.y-e.y)||1;
@@ -249,6 +272,7 @@ function draw(){
  bar(14,46,180,8,P.mp/maxMp(),'#4a7bff');g.fillStyle='#fff';g.fillText('MP '+Math.floor(P.mp)+'/'+maxMp(),200,54);g.fillStyle=gw?'#ffb347':'#8fd3ff';g.fillText(P.lv>=50?'EXP MAX':gw?'EXP MAX - 洞窟の最深部のボスを倒してLv'+GATE+'へ!':'EXP '+P.exp+' / '+need(P.lv)+'  (次のLvまで '+(need(P.lv)-P.exp)+')',14,70);g.fillStyle='#ffe27a';if(pts()>0)g.fillText('スキルポイント '+pts()+'  (教会で強化)',14,88);if(stp()>0)g.fillText('ステータスポイント '+stp()+'  (教会で振り分け)',14,104);
  if(B){bar(300,12,480,14,B.hp/B.mh,B.inv>0?'#ffe27a':'#b04adf');g.fillStyle='#fff';g.font='12px sans-serif';g.textAlign='center';g.fillText((B.n||(B.k2?'ボス2':'ボス'))+' Lv'+B.lv+'  '+Math.max(0,Math.ceil(B.hp))+'/'+B.mh,540,42);g.textAlign='left'}
  bar(0,H-8,W,8,P.lv>=50?1:P.exp/need(P.lv),gw?'#ffb347':'#4aa8ff');
+ g.textAlign='left';g.font='12px sans-serif';g.fillStyle='#ffd84a';g.fillText(P.gold+' G',14,H-34);g.fillStyle=P.pcd>0?'#8b94a8':'#e8ecf5';g.fillText(POT.map((t,i)=>(i+1)+':'+(P.it[t.id]||0)).join('  '),14,H-18);
  const j=J(),lab=['Space','K','L'],nm=['通常攻撃 Lv'+P.ba,...(j.sk?j.sk.map((s,k)=>s.n+' Lv'+P.sk[k]):['-','-'])];
  for(let i=0;i<3;i++){const x=W/2-240+i*160,y=H-52;g.fillStyle='#0009';g.fillRect(x,y,150,34);
   const mx=i==0?aInt():j.sk&&j.sk[i-1]?scd(j.sk[i-1],i-1):1;g.fillStyle=P.cd[i]>0?'#555':j.c;g.fillRect(x,y+30,150*(1-P.cd[i]/mx),4);
@@ -265,7 +289,7 @@ function draw(){
  }
 }
 const pick=l=>{let r=Math.random()*l.reduce((a,b)=>a+b[1],0);for(const[k,w]of l)if((r-=w)<0)return k;return l[0][0]};
-function goField(i,side){FI=i;E=[];P.x=side<0?40:W-40;P.y=240;cv.style.background=FD[i].bg;say(FD[i].n)}
+function goField(i,side){FI=i;E=[];P.x=side<0?70:W-70;P.y=240;cv.style.background=FD[i].bg;say(FD[i].n)}
 function drop(e){let k=0;for(const[id,r]of e.dr)if(Math.random()<r){P.inv[id]=(P.inv[id]||0)+1;const it=ITEMS[id];fl(e.x,e.y-30-k++*16,(r<.15?'★':'+')+it[0],r<.15?'#ffd84a':'#e8ecf5',13)}}
 function drawGate(){
  const f=FD[FI];g.save();g.textAlign='right';g.font='12px sans-serif';g.fillStyle='#8b94a8';
@@ -279,11 +303,34 @@ function drawGate(){
 const BLD=[{x:90,y:90,w:150,h:90,c:'#a8a0c0',n:'教会'},{x:330,y:90,w:140,h:90,c:'#4a6a8a',n:'道具屋'},{x:570,y:90,w:150,h:90,c:'#7a4a4a',n:'鍛冶屋'}];
 const NPC=[
  {x:165,y:205,n:'神父',c:'#e8e4f0',hint:'E: 祈る',fn:()=>{state='church';chm=''}},
- {x:400,y:205,n:'道具屋',c:'#7ad9ff',fn:()=>{msg={t:3,s:'道具屋: すまんね、まだ準備中なんだ。'}}},
+ {x:400,y:205,n:'道具屋',c:'#7ad9ff',hint:'E: 買い物',fn:()=>{state='shop';SM=0;SC=0;shm=''}},
  {x:645,y:205,n:'鍛冶屋',c:'#e0453f',hint:'E: 作る',fn:()=>{state='smith';smm=''}},
  {x:400,y:350,n:'町の人',c:'#d8d2c0',fn:()=>{msg={t:3,s:'町の人: ようこそ、始まりの町へ!'}}}];
 FD[0].ix=NPC; // Eキーで反応する物(NPC・ドアなど)。fn が実行される
-let smm='';
+let smm='',SM=0,SC=0,shm='';
+const sl=()=>Object.keys(P.inv).filter(k=>P.inv[k]>0&&SELL[k]);
+function trade(q){
+ if(!SM){
+  const t=POT[SC];if(!t)return;
+  q=Math.min(q,Math.floor(P.gold/t.p),99-(P.it[t.id]||0));
+  if(q<1){shm=(P.it[t.id]||0)>=99?'これ以上持てない':'ゴールドが足りない';return}
+  P.gold-=q*t.p;P.it[t.id]=(P.it[t.id]||0)+q;shm=t.n+'を'+q+'個買った';
+ }else{
+  const l=sl(),k=l[SC];if(!k)return;
+  q=Math.min(q,P.inv[k]);P.gold+=q*SELL[k];P.inv[k]-=q;shm=ITEMS[k][0]+'を'+q+'個売った (+'+q*SELL[k]+'G)';
+  SC=Math.min(SC,Math.max(0,sl().length-1));
+ }
+}
+function drawShop(){
+ g.fillStyle='#000d';g.fillRect(0,0,W,H);g.textAlign='center';g.fillStyle='#fff';g.font='bold 24px sans-serif';g.fillText('道具屋',W/2,38);
+ g.font='14px sans-serif';g.fillStyle='#ffd84a';g.fillText('所持金 '+P.gold+' G',W/2,60);
+ ['1  買う','2  売る'].forEach((n,i)=>{const x=200+i*210;g.fillStyle=i==SM?'#ffe27a':'#2c3a52';g.fillRect(x,70,190,28);g.fillStyle=i==SM?'#10141f':'#8b94a8';g.font='bold 14px sans-serif';g.fillText(n,x+95,90)});
+ g.textAlign='left';
+ if(!SM)POT.forEach((t,i)=>{const y=112+i*50,s=i==SC,ok=P.gold>=t.p;g.fillStyle=s?'#ffe27a':'#2c3a52';g.fillRect(60,y,680,44);g.fillStyle='#10141f';g.fillRect(62,y+2,676,40);g.fillStyle=ok?'#fff':'#8b94a8';g.font='bold 15px sans-serif';g.fillText((s?'▶ ':'   ')+t.n+'  '+t.p+' G',76,y+20);g.font='12px sans-serif';g.fillStyle='#8b94a8';g.fillText('   '+t.d+'  (所持 '+(P.it[t.id]||0)+')',76,y+37)});
+ else{const l=sl();if(!l.length){g.fillStyle='#8b94a8';g.font='14px sans-serif';g.fillText('売れる素材がない',60,130)}
+  l.forEach((k,i)=>{const x=60+(i/11|0)*350,y=108+(i%11)*30,s=i==SC;g.fillStyle=s?'#ffe27a':'#2c3a52';g.fillRect(x,y,330,26);g.fillStyle='#10141f';g.fillRect(x+2,y+2,326,22);g.fillStyle=ITEMS[k][1];g.fillRect(x+8,y+7,10,10);g.fillStyle='#e8ecf5';g.font='13px sans-serif';g.textAlign='left';g.fillText(ITEMS[k][0]+' x'+P.inv[k],x+26,y+18);g.textAlign='right';g.fillStyle='#ffd84a';g.fillText(SELL[k]+' G',x+320,y+18);g.textAlign='left'})}
+ g.textAlign='center';g.fillStyle='#ffe27a';g.font='13px sans-serif';g.fillText(shm,W/2,H-34);g.fillStyle='#8b94a8';g.fillText('←→で買う/売る ・ ↑↓で選ぶ ・ E で1個 ・ Shift+E で10個 ・ Esc で閉じる',W/2,H-14);
+}
 const RC=[
  {id:'w1',n:'ラビットダガー',t:'w',v:4,m:{fur:5,gel:5}},
  {id:'a1',n:'毛皮の服',t:'a',v:6,m:{fur:8,gel:3}},
@@ -319,8 +366,9 @@ function drawTown(){
  for(const n of NPC){g.fillStyle=n.c;g.strokeStyle='#fff';g.lineWidth=2;g.beginPath();g.arc(n.x,n.y,12,0,7);g.fill();g.stroke();g.fillStyle='#fff';g.font='11px sans-serif';g.fillText(n.n,n.x,n.y-18)}
  g.restore();
 }
-function act(){for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60)){n.fn();return}}
-function drawIx(){g.save();g.textAlign='center';g.font='11px sans-serif';g.fillStyle='#ffe27a';for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60))g.fillText(n.hint||'E: 話す',n.x,n.y+28);g.restore()}
+const gd=()=>B||Math.abs(P.y-240)>=70?0:P.x>W-50&&FI<FD.length-1?1:P.x<50&&FI>0?-1:0; // 出口の近くなら移動方向(1:次/-1:前)
+function act(){for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60)){n.fn();return}const d=gd();if(d)goField(FI+d,-d)}
+function drawIx(){g.save();g.textAlign='center';g.font='11px sans-serif';g.fillStyle='#ffe27a';for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60))g.fillText(n.hint||'E: 話す',n.x,n.y+28);const d=gd();if(d){const x=d>0?W-70:70;g.fillText('E: 移動',x,236);g.fillText(FD[FI+d].n,x,252)}g.restore()}
 let MT=0,MC=0;
 const OWN=()=>[...RC.filter(r=>P.cr[r.id]&&r.t=='w'),...RC.filter(r=>P.cr[r.id]&&r.t=='a')];
 function equipCur(){const r=OWN()[MC];if(r)P.eq[r.t]=P.eq[r.t]==r?null:r}
@@ -331,7 +379,7 @@ function drawMenu(){
  const own=OWN(),eq=P.eq,df=eq.a?eq.a.v:0;
  if(MT==0){
   const wv=eq.w?eq.w.v:0,at=Math.round((J().atk+wv+P.lv*1.6)*(1+.02*P.st[J().mg?3:2]));
-  const L=['Lv'+P.lv+'  '+J().n,P.lv>=50?'EXP MAX':'EXP '+P.exp+' / '+need(P.lv),'HP '+Math.ceil(P.hp)+' / '+maxHp(),'MP '+Math.floor(P.mp)+' / '+maxMp(),(J().mg?'魔法':'物理')+'攻撃力 '+at,'魔力 +'+P.st[3]*2+'%','防御 '+df+'(軽減 '+(df*.05).toFixed(1)+'% + '+Math.round(df*.2)+')','移動速度 '+Math.round(170+P.st[4]*.8)];
+  const L=['Lv'+P.lv+'  '+J().n,P.lv>=50?'EXP MAX':'EXP '+P.exp+' / '+need(P.lv),'HP '+Math.ceil(P.hp)+' / '+maxHp(),'MP '+Math.floor(P.mp)+' / '+maxMp(),(J().mg?'魔法':'物理')+'攻撃力 '+at,'魔力 +'+P.st[3]*2+'%','防御 '+df+'(軽減 '+(df*.05).toFixed(1)+'% + '+Math.round(df*.2)+')','移動速度 '+Math.round(170+P.st[4]*.8),'所持金 '+P.gold+' G'];
   L.forEach((t,i)=>g.fillText(t,60,92+i*34));
   g.fillStyle='#ffe27a';g.font='bold 15px sans-serif';g.fillText('装備',420,92);g.font='14px sans-serif';
   g.fillStyle='#e8ecf5';g.fillText('武器: '+(eq.w?eq.w.n+' (攻撃+'+eq.w.v+')':'なし'),420,122);g.fillText('防具: '+(eq.a?eq.a.n+' (防御+'+eq.a.v+')':'なし'),420,150);
@@ -341,7 +389,9 @@ function drawMenu(){
  }else if(MT==1){
   g.fillStyle='#ffe27a';g.font='bold 15px sans-serif';g.fillText('武器',60,92);g.fillText('防具',420,92);g.fillText('道具',60,300);g.font='14px sans-serif';
   [['w',60],['a',420]].forEach(([t,x])=>{const l=own.filter(r=>r.t==t);if(!l.length){g.fillStyle='#8b94a8';g.fillText('なし',x,122)}l.forEach((r,i)=>{g.fillStyle='#e8ecf5';g.fillText(r.n+'  '+(t=='w'?'攻撃+':'防御+')+r.v+(eq[t]==r?'  [装備中]':''),x,122+i*26)})});
-  g.fillStyle='#8b94a8';g.fillText('(まだ道具はない)',60,330);
+  const its=POT.filter(t=>P.it[t.id]>0);
+  if(!its.length){g.fillStyle='#8b94a8';g.fillText('(まだ道具はない。道具屋で買おう)',60,330)}
+  its.forEach((t,i)=>{g.fillStyle='#e8ecf5';g.fillText('['+(POT.indexOf(t)+1)+'] '+t.n+'  x'+P.it[t.id]+'  '+t.d,60,330+i*26)});
  }else{
   const ks=Object.keys(P.inv).filter(k=>P.inv[k]>0);
   if(!ks.length){g.fillStyle='#8b94a8';g.fillText('まだ素材を持っていない',60,100)}
@@ -350,12 +400,12 @@ function drawMenu(){
  g.textAlign='center';g.fillStyle='#8b94a8';g.font='13px sans-serif';g.fillText('←→ か A/D でタブ切替 ・ '+(MT==0?'↑↓ で選ぶ ・ E で装備/はずす ・ ':'')+'Tab か Esc で閉じる',W/2,H-16);
 }
 let chm='',DBH=null,UID=null,touch=0,LOCALT=0,saving=0;
-const snap=()=>({v:1,t:Date.now(),lv:P.lv,exp:P.exp,job:P.job,sk:P.sk,ba:P.ba,st:P.st,inv:P.inv,eq:{w:P.eq.w?P.eq.w.id:null,a:P.eq.a?P.eq.a.id:null},cr:P.cr,gk:P.gk});
+const snap=()=>({v:1,t:Date.now(),lv:P.lv,exp:P.exp,job:P.job,sk:P.sk,ba:P.ba,st:P.st,inv:P.inv,eq:{w:P.eq.w?P.eq.w.id:null,a:P.eq.a?P.eq.a.id:null},cr:P.cr,gk:P.gk,gold:P.gold,it:P.it});
 function applySave(d){
  if(!d||!Number.isFinite(d.lv))return false;
  P.lv=Math.max(1,Math.min(50,d.lv));P.exp=d.exp||0;P.job=JOBS[d.job]?d.job:'none';P.sk=[0,1].map(i=>(d.sk&&d.sk[i])||1);P.ba=d.ba||1;
  P.st=[0,1,2,3,4].map(i=>(d.st&&d.st[i])||0);
- P.inv=d.inv||{};P.cr=d.cr||{};P.gk=d.gk?1:0;
+ P.inv=d.inv||{};P.cr=d.cr||{};P.gk=d.gk?1:0;P.gold=d.gold||0;P.it=d.it||{};
  const e=d.eq||{};P.eq={w:RC.find(r=>r.id==e.w)||null,a:RC.find(r=>r.id==e.a)||null};
  P.hp=maxHp();P.mp=maxMp();goField(0,-1);state=(P.lv>=10&&P.job=='none')?'select':'play';return true;
 }
@@ -408,7 +458,7 @@ function drawPanel(){
 }
 state='login';
 let last=performance.now();
-function loop(n){const dt=Math.min(.05,(n-last)/1000);last=n;if(state=='play')update(dt);draw();if(state=='skills'||state=='stats')drawPanel();if(state=='menu')drawMenu();if(state=='church')drawChurch();if(state=='smith')drawSmith();requestAnimationFrame(loop)}
+function loop(n){const dt=Math.min(.05,(n-last)/1000);last=n;if(state=='play')update(dt);draw();if(state=='skills'||state=='stats')drawPanel();if(state=='menu')drawMenu();if(state=='church')drawChurch();if(state=='smith')drawSmith();if(state=='shop')drawShop();requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 </script>
 <script type="module">
