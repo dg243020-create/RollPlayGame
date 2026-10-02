@@ -365,7 +365,7 @@ const EXY=H-44; // 南の道のこの高さより下で E を押すと次のフ�
 const okT=(x,y)=>{const r=14;
  if(x>=WK.x+r&&x<=WK.x+WK.w-r&&y>=WK.y+r&&y<=WK.y+WK.h-r){for(const b of BLD)if(x>b.x-r&&x<b.x+b.w+r&&y>b.y-r&&y<b.y+b.h+r)return 0;return 1}
  return x>=CR.x+r&&x<=CR.x+CR.w-r&&y>=WK.y+WK.h-30&&y<=H-r};
-const TOWNIMG=new Image();let TOWNOK=0;TOWNIMG.onload=()=>TOWNOK=1;TOWNIMG.src='mati1.png';
+const TOWNIMG=new Image();let TOWNOK=0;TOWNIMG.onload=()=>TOWNOK=1;TOWNIMG.src='RPG/mati1.png';
 const NPC=[
  {x:tx(252),y:ty(318),n:'神父',c:'#e8e4f0',hint:'E: 祈る',fn:()=>{state='church';chm=''}},
  {x:tx(1334),y:ty(318),n:'道具屋',c:'#7ad9ff',hint:'E: 買い物',fn:()=>{state='shop';SM=0;SC=0;shm='';shp=null}},
