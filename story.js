@@ -1,9 +1,11 @@
 // ===== ストーリー: 冒頭〜ゼノア案内 (index.html の </body> の直前で読み込む) =====
 (()=>{
 const BGMDIR='BGM/'; // BGM/mati1.mp3
-let bgm=null;
+let bgm=null,bgmName='';
+const MAPBGM={0:'mati1',1:'sougen1',2:'doukutu1',3:'boss1'}; // フィールド番号 → BGM(森・火山は曲ができるまで前の曲のまま)
 function playBGM(n){
- if(bgm)bgm.pause();
+ if(n==bgmName&&bgm&&!bgm.paused)return;
+ bgmName=n;if(bgm)bgm.pause();
  const ex=['MP3','mp3','wav','ogg','m4a'];let k=0;
  const a=bgm=new Audio();a.loop=true;a.volume=.5;
  a.onerror=()=>{if(++k<ex.length){a.src=BGMDIR+n+'.'+ex[k];a.play().catch(()=>{})}else console.warn('BGMが見つかりません: '+BGMDIR+n+'.(mp3/wav/ogg/m4a)')};
@@ -84,6 +86,18 @@ function lava(now){
  for(const[x,y]of c){const cx=Math.max(x*40,Math.min(P.x,x*40+40)),cy=Math.max(y*40,Math.min(P.y,y*40+40));
   if(Math.hypot(P.x-cx,P.y-cy)<10){const d=Math.max(1,Math.ceil(maxHp()*.05));P.hp-=d;lavaT=now+800;fl(P.x,P.y-24,'-'+d,'#ff8a3a',16);ring(P.x,P.y,30,'#ff6a2a',.25);return}}
 }
+// 死亡演出: 暗転 → 神父のメッセージ → 教会で復活(デスペナルティなし)
+let DK=0,dk=0,lastMsg=msg,lastT=performance.now(); // DK=暗転の濃さ(0〜1) / dk=0なし 1暗転中 2神父の会話 3明るくなる中
+const od=draw;draw=function(){od();if(DK>0){g.fillStyle='rgba(0,0,0,'+DK+')';g.fillRect(0,0,W,H)}};
+function death(now){
+ const dt=Math.min(.05,(now-lastT)/1000);lastT=now;
+ if(msg!==lastMsg){lastMsg=msg;
+  if(!dk&&state=='play'&&/^(ボスに敗れた|倒れた)/.test(msg.s)){dk=1;state='dead';msg={t:0,s:''};lastMsg=msg}}
+ if(dk==1){DK=Math.min(1,DK+dt/.9);
+  if(DK>=1){dk=2;goField(0,0);P.x=t9(252);P.y=t9(345);P.hp=maxHp();P.mp=maxMp();P.hit=0;E=[];B=null;clr();
+   scene([L('神父','おお、{p}よ。死んでしまうとはなさけない……'),L('神父','だが、世界はまだ終わってはおらぬ。もう一度、立ち上がるのだ'),L('','(教会で目を覚ました。HPとMPが全回復した)')],()=>{dk=3})}}
+ else if(dk==3){DK=Math.max(0,DK-dt/.8);if(DK<=0)dk=0}
+}
 // ルミがチュートリアル中ついてくる(プレイヤーの通った道を少し遅れて辿る)/ 家を出たら広場の説明
 let RU=null;const trail=[];
 function tick(){
@@ -95,10 +109,10 @@ function tick(){
  if(trail.length>=11){RU.x+=(trail[0].x-RU.x)*.2;RU.y+=(trail[0].y-RU.y)*.2}
 }
 // 画面の状態が変わったことを検知(お店や教会を閉じたときにイベントを起こす)
-let ps=state;(function watch(){if(state!=ps){const o=ps;ps=state;onSt(o,state)}lava(performance.now());tick();requestAnimationFrame(watch)})();
+let ps=state;(function watch(){if(state!=ps){const o=ps;ps=state;onSt(o,state)}lava(performance.now());tick();death(performance.now());requestAnimationFrame(watch)})();
 // キー入力: 会話中・選択中・開始前は、元のキー処理より先に受け取って止める
 addEventListener('keydown',e=>{
- if(state=='wait'){e.stopImmediatePropagation();return}
+ if(state=='wait'||state=='dead'){e.stopImmediatePropagation();return}
  if(state!='talk'&&state!='choice')return;
  e.stopImmediatePropagation();
  if(['Space','Tab','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
@@ -124,7 +138,7 @@ FD[1].ex[2].p=[400,60]; // 草原の南の出口 → 洞窟の上から入る
 FD[2].ex[0]={r:[320,0,480,45],to:1,p:[360,345],b:[320,0,160,8]}; // 洞窟から戻る出口も上側に
 FD[3].ex=[]; // 最深部は左から入り、戻れない
 const sb=startBoss;startBoss=function(){sb();P.x=110;P.y=240}; // ボス戦開始時も左側から
-const gf=goField;goField=function(i,s,x,y){gf(i,s,x,y);if(i==2&&x===undefined){P.x=690;P.y=240}}; // 敗北して洞窟に戻るときは黒い部分の内側へ
+const gf=goField;goField=function(i,s,x,y){gf(i,s,x,y);if(bgm&&MAPBGM[i])playBGM(MAPBGM[i]);if(i==2&&x===undefined){P.x=690;P.y=240}}; // 敗北して洞窟に戻るときは黒い部分の内側へ
 // 町(mati1.png): 画像の横幅が 1584→1440 に変わったので、建物・NPCの位置を新しい画像に合わせて取り直す
 const t9=v=>v*W/1440,R9=(a,b,c,d,o)=>({x:t9(a),y:t9(b),w:t9(c-a),h:t9(d-b),...o});
 const doorB=R9(200,646,304,654,{n:'扉'});let doorOpen=false;
