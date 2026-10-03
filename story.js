@@ -14,6 +14,7 @@ function playBGM(n){
 P.name='アルト';P.tour=0;
 const Ru='ルミ',L=(n,t)=>({n,t});
 let DQ=[],DI=0,DCB=null,DCH=null,CI=0;
+let END1=0; // 1=クリスタルドレイクを倒した直後(職業選択が終わったら終幕の会話を始める)
 $('ttext').style.whiteSpace='pre-line';
 $('tbox').onclick=()=>{if(state=='talk')nextLine()};
 function scene(q,cb){DQ=q.slice();DI=0;DCB=cb||null;state='talk';nextLine()}
@@ -40,6 +41,15 @@ function crystalize(){
  if(bgm){bgm.pause();setTimeout(()=>{if(bgm)bgm.play().catch(()=>{})},2200)}
  const n=NPC[3];n.c='#bfefff';n.n='水晶';n.fn=()=>talk('','水晶になった町の人。冷たく、動かない');
 }
+// 暗転(DK)を to(0〜1)まで sec 秒かけて動かす
+function fade(to,sec,cb){const from=DK,t0=performance.now();(function f(){const k=Math.min(1,(performance.now()-t0)/(sec*1000));DK=from+(to-from)*k;if(k<1)requestAnimationFrame(f);else if(cb)cb()})()}
+function shatter(){ring(400,110,240,'#bfefff',.9);ring(400,110,120,'#fff',.6);if(bgm)bgm.pause();SE('bakuhatu')}
+// 水晶竜を倒すと、水晶になっていた町の人が元に戻る
+function uncrystal(){
+ const n=NPC[3];n.c='#d8d2c0';n.n='町の人';n.fn=()=>talk('町の人','ありがとう、旅の人! ……長い夢を見ていたみたいだ');
+ const c=NPC.find(o=>o.n=='水晶');if(c){c.c='#e8d9b8';c.n='パン屋';c.hint='E: 話す';c.fn=()=>talk('パン屋のおじさん','おお、あんたが助けてくれたのか! 今度、焼きたてをご馳走するよ')}
+}
+function toTown(){goField(0,0);P.x=t9(252);P.y=t9(345);P.hp=maxHp();P.mp=maxMp();P.hit=0;E=[];B=null;clr();uncrystal();mv(ru,330,400)}
 const S_INTRO=[
  L('','……。'),L('','(見知らぬ天井。柔らかいベッドの上で、目が覚めた)'),
  L(Ru,'あ、目が覚めた! ……よかった。ねえ、あなた、どこから来たの?'),
@@ -52,9 +62,9 @@ const S_INTRO=[
  L('','【操作】WASD / 矢印キーで移動、E で話す・調べる、Tab でメニュー'),
  L(Ru,'外に出よう。扉の前で、Eを押してみて')];
 const S_PLAZA=[L(Ru,'ここが広場。人が少ないでしょ。みんな家に閉じこもってるの'),L(Ru,'あそこに立ってる人、動かないの。近づいて、Eで調べてみて')];
-const S_CRY=[L(Ru,'……ね。それが、今この町で起きてること'),L(Ru,'次は道具屋に行こう。右上のお店だよ')];
-const S_SHOP=[L('道具屋の主人','いらっしゃい。……お客さんは久しぶりだ'),L('道具屋の主人','HPポーションは10G。少しだけ持たせてやる、買ってみな'),L('','(20Gを受け取った)')];
-const S_SMITH=[L('鍛冶屋','武器と防具は、魔物の素材から作る。集めてきな'),L('鍛冶屋','作ったら、Tabのメニューで装備できる')];
+const S_CRY=[L(Ru,'……ね。それが、今この町で起きてること'),L(Ru,'まずは鍛冶屋に行こう。広場の奥の大きな建物だよ'),L(Ru,'外は危ないから、武器を持っておかなきゃ')];
+const S_SMITH=[L('鍛冶屋','いらっしゃい。……客は久しぶりだ'),L('鍛冶屋','丸腰で町を出るのは危ない。始まりの剣を、20Gで売ってやる'),L('鍛冶屋','金がないなら、少しだけ持たせてやる。買ってみな'),L('','(20Gを受け取った)'),L('鍛冶屋','「剣」のタブで始まりの剣を選んで、Enterだ')];
+const S_BOUGHT=[L(Ru,'買えたね! 装備は、Tabのメニューでも確認できるよ'),L(Ru,'ポーションは道具屋で買えるよ。使うときはキー1')];
 const S_CRYSTAL=[
  L('','(広場のほうから、キィン……と高い音が響いた)'),{fn:crystalize},
  L(Ru,'……また'),L(Ru,'さっき広場に立ってた町の人。昨日はパン屋のおじさんだった'),
@@ -65,18 +75,41 @@ const S_ELDER=[
  L(Ru,'長老様は、水晶竜のせいだって言ってる。でも、誰も確かめに行けないの'),
  {o:[{t:'……僕が、行ってみる',r:[L(Ru,'……ほんとに? ありがとう。気をつけてね')]},
      {t:'まず、状況をもう少し聞かせてくれ',r:[L('長老','水晶になるのは町の者だけではない。森も洞窟も、少しずつな'),L(Ru,'……行くって決めたら、教えてね')]}]},
- L(Ru,'南の道から、はじまりの草原に出られるよ。……待ってるね')];
+ L(Ru,'南の道から、エルフィア草原に出られるよ。……待ってるね')];
+// クリスタルドレイクを倒したあと: 撃破 → 記憶のかけら → ゼノアの教会で目覚める → 長老と火山の異変
+const S_END1=[
+ L('クリスタルドレイク','なぜ……我を……'),
+ {fn:shatter},
+ L('','(竜の体が水晶のかけらになって、静かに砕け散った)'),
+ L('','……。'),
+ L('','(そのとき、頭の奥で、誰かの声がした)'),
+ L('???','……忘れろ。それが、お前のためだ'),
+ L('','(誰の声か、わからない。ただ、胸の奥がひどく痛んだ)'),
+ {as:n=>fade(1,1,n)},{fn:toTown},{as:n=>fade(0,.9,n)},
+ L('','(見慣れた天井。教会のベッドの上で、目が覚めた)'),
+ L(Ru,'{p}! ……よかった、目が覚めたのね'),
+ L(Ru,'見て。水晶になってた人たち、みんな元に戻ったの。{p}が、水晶竜を倒してくれたんだよね'),
+ {o:[{t:'……ああ。みんなが無事で、よかった',r:[L(Ru,'うん。……ありがとう、{p}')]},
+     {t:'……倒したのに、胸が苦しいんだ',r:[L(Ru,'……何か、思い出したの? 無理に話さなくていいよ。そばにいるから')]}]},
+ L('','(杖をつく音が近づいてきた)'),
+ L('長老','……よくやってくれた、旅の者。町を代表して、礼を言う'),
+ L('長老','だが……気のせいかの。空が、少し暗くなった気がせんか'),
+ L(Ru,'……え? いつもと、変わらないと思うけど'),
+ L('','(そのとき、遠くで、地を揺らす轟音が響いた)'),
+ L('長老','今のは……東の火山か。ラグナ火山が、噴火しておる'),
+ L('長老','あの山には、炎の竜が棲むという。水晶竜の次は、炎竜か……'),
+ L(Ru,'……行くんでしょ、{p}。ハルシアの森を抜けた先だよ。気をつけてね')];
 const addN=o=>{NPC.push(o);FD[0].ix.push(o)};
-const HINT={0.5:'扉の前で、Eを押して外に出よう',0.6:'外に出てみよう',1:'あそこの水晶の人影を、Eで調べてみて',2:'右上の道具屋に行ってみよう',4:'次は鍛冶屋。広場の奥の大きな建物だよ',6:'教会は左上だよ。神父様に会いに行こう'};
+const HINT={0.5:'扉の前で、Eを押して外に出よう',0.6:'外に出てみよう',1:'あそこの水晶の人影を、Eで調べてみて',2:'広場の奥の鍛冶屋に行ってみよう',3:'鍛冶屋で、始まりの剣を買ってみよう',6:'教会は左上だよ。神父様に会いに行こう',10:'ハルシアの森を抜けた先が、ラグナ火山だよ'};
 addN({x:tx(1100),y:ty(560),n:'水晶',c:'#bfefff',hint:'E: 調べる',fn:()=>{const t=L('','冷たく、透き通っている。人の形をした水晶だ');if(P.tour==1){P.tour=2;scene([t,...S_CRY])}else talk('',t.t)}});
-addN({x:tx(860),y:ty(560),n:'ルミ',c:'#ffb3d1',r:40,hint:'E: 話す',fn:()=>talk(Ru,HINT[P.tour]||'南の道から、はじまりの草原に行けるよ')});
-const f0=NPC[0].fn,f1=NPC[1].fn,f2=NPC[2].fn;
+addN({x:tx(860),y:ty(560),n:'ルミ',c:'#ffb3d1',r:40,hint:'E: 話す',fn:()=>talk(Ru,HINT[P.tour]||'南の道から、エルフィア草原に行けるよ')});
+const f0=NPC[0].fn,f2=NPC[2].fn;let gift=0; // gift: 鍛冶屋でもらう20Gは1回だけ
 NPC[0].fn=()=>P.tour==6?(P.tour=7,scene(S_CH,f0)):f0();
-NPC[1].fn=()=>P.tour==2?(P.tour=3,scene(S_SHOP,()=>{P.gold+=20;f1()})):f1();
-NPC[2].fn=()=>P.tour==4?(P.tour=5,scene(S_SMITH,f2)):f2();
+NPC[2].fn=()=>P.tour==2?(P.tour=3,scene(S_SMITH,()=>{if(!gift){gift=1;P.gold+=20}f2()})):f2();
 function onSt(o,s){if(s!='play')return;
- if(o=='shop'&&P.tour==3){P.tour=4;scene([L(Ru,'ポーションはキー1で使えるよ'),L(Ru,'次は鍛冶屋。広場の奥の大きな建物だよ')])}
- else if(o=='smith'&&P.tour==5){P.tour=6;scene(S_CRYSTAL)}
+ if(o=='smith'&&P.tour==3){
+  if(P.cr.w0){P.tour=6;scene([...S_BOUGHT,...S_CRYSTAL])} // 始まりの剣を買ったら次へ
+  else scene([L(Ru,'あれ、剣は買わないの? 外は危ないから、持っておこうよ')])}
  else if(o=='church'&&P.tour==7){P.tour=8;scene(S_ELDER,()=>{P.tour=9})}}
 // 溶岩ブロック(画像の40x40マス。col,row): 触れている間、0.8秒ごとに最大HPの5%
 const LAVA={2:[[1,5],[3,6],[0,7],[2,7],[4,7],[4,8],[5,8],[3,9],[2,10],[4,10],[5,11]],3:[[1,1],[4,1],[13,1],[9,2],[16,2],[5,4],[9,4],[14,4],[11,6],[18,6],[4,7],[7,7],[10,9],[2,10],[17,10]]};
@@ -108,9 +141,23 @@ function tick(){
  if(!l||Math.hypot(P.x-l.x,P.y-l.y)>=4){trail.push({x:P.x,y:P.y});if(trail.length>11)trail.shift()}
  if(trail.length>=11){RU.x+=(trail[0].x-RU.x)*.2;RU.y+=(trail[0].y-RU.y)*.2}
 }
+// 現在の目標(画面下、ゴールドの左の枠)。進行度 P.tour から決める。空なら「―」
+function goalText(){
+ const k=P.tour;
+ if(k==0.5||k==0.6)return '家の外に出る';
+ if(k==1)return '広場の水晶を調べる';
+ if(k==2)return '鍛冶屋に行く';
+ if(k==3)return '鍛冶屋で始まりの剣を買う';
+ if(k==6)return '教会に行く';
+ if(k==7||k==8)return '長老の話を聞く';
+ if(k==9)return P.gk?'':'「水晶竜」を探しに行く';
+ if(k==10)return FI==5?'炎竜を探す':'ハルシアの森を抜けて、ラグナ火山へ';
+ return '';
+}
 // 画面の状態が変わったことを検知(お店や教会を閉じたときにイベントを起こす)
 // BGMの音量は毎フレーム設定(SET.bgm)に合わせる
-let ps=state;(function watch(){if(state!=ps){const o=ps;ps=state;onSt(o,state)}if(bgm)bgm.volume=Math.max(0,Math.min(1,SET.bgm/100));lava(performance.now());tick();death(performance.now());requestAnimationFrame(watch)})();
+let ps=state;(function watch(){if(state!=ps){const o=ps;ps=state;onSt(o,state)}if(bgm)bgm.volume=Math.max(0,Math.min(1,SET.bgm/100));if(END1&&state=='play'){END1=0;scene(S_END1,()=>{P.tour=10})}
+st($('goal').children[1],goalText()||'―');lava(performance.now());tick();death(performance.now());requestAnimationFrame(watch)})();
 // キー入力: 会話中・選択中・開始前は、元のキー処理より先に受け取って止める
 addEventListener('keydown',e=>{
  if(state=='wait'||state=='dead'){e.stopImmediatePropagation();return}
@@ -140,6 +187,8 @@ FD[2].ex[0]={r:[320,0,480,45],to:1,p:[360,345],b:[320,0,160,8]}; // 洞窟から
 FD[3].ex=[]; // 最深部は左から入り、戻れない
 const sb=startBoss;startBoss=function(){sb();P.x=110;P.y=240}; // ボス戦開始時も左側から
 const gf=goField;goField=function(i,s,x,y){gf(i,s,x,y);if(bgm&&MAPBGM[i])playBGM(MAPBGM[i]);if(i==2&&x===undefined){P.x=690;P.y=240}}; // 敗北して洞窟に戻るときは黒い部分の内側へ
+// クリスタルドレイク(ボス1)を倒したら、職業選択のあと(play に戻ってから)終幕の会話を始める
+const oh=hurt;hurt=function(e,m){const b=e&&e.boss&&!e.k2;oh(e,m);if(b&&e.hp<=0&&!P.ch.k1){P.ch.k1=1;END1=1}};
 // 町(mati1.png): 画像の横幅が 1584→1440 に変わったので、建物・NPCの位置を新しい画像に合わせて取り直す
 const t9=v=>v*W/1440,R9=(a,b,c,d,o)=>({x:t9(a),y:t9(b),w:t9(c-a),h:t9(d-b),...o});
 const doorB=R9(200,646,304,654,{n:'扉'});let doorOpen=false;
