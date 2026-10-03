@@ -45,6 +45,41 @@ function setCry(){const n=NPC[3];n.c='#bfefff';n.n='水晶';n.fn=()=>talk('','�
 // 暗転(DK)を to(0〜1)まで sec 秒かけて動かす
 function fade(to,sec,cb){const from=DK,t0=performance.now();(function f(){const k=Math.min(1,(performance.now()-t0)/(sec*1000));DK=from+(to-from)*k;if(k<1)requestAnimationFrame(f);else if(cb)cb()})()}
 function shatter(){ring(400,110,240,'#bfefff',.9);ring(400,110,120,'#fff',.6);if(bgm)bgm.pause();SE('flash')} // 竜が水晶のかけらになって砕ける音(koukaon/flash.mp3)
+// ===== 記憶シーン: 星空の画像(RPG/galactic.png)の上に文章を出す。クリック / E / Enter / Space で次へ =====
+// 文字は黒。画像が暗くて読めないので、後ろに白い半透明の板を敷いている(MEMPANEL を 'transparent' にすると板なし)
+const MEMPANEL='rgba(255,255,255,.82)',MEMCOLOR='#000';
+const MEMPAGES=[
+ 'ただ、主人公には一つだけ引っかかる。\n水晶竜が最後に言った、\n「その記憶を取り戻すことが、世界を救うとは限らぬ。」',
+ 'その意味が分からない。',
+ 'そして水晶竜を倒した瞬間、\n主人公の中に短い記憶が戻る。',
+ '主人公の記憶\n\n真っ暗な場所。\n誰かと話している。',
+ '「……まだ、竜を倒すつもりなのか?」',
+ '主人公:\n「そうしなきゃ、この世界は――」'];
+let MEM=null;
+// 記憶シーン中はゲーム側のキー処理に渡さない(下の会話用の keydown より先に登録しておく)
+addEventListener('keydown',e=>{
+ if(!MEM)return;
+ e.stopImmediatePropagation();e.preventDefault();
+ if(!e.repeat&&['KeyE','Enter','Space'].includes(e.code))MEM();
+},true);
+function memScene(cb){
+ const d=document.createElement('div');
+ d.style.cssText='position:fixed;inset:0;z-index:35;background:#000 url(RPG/galactic.png) center/cover no-repeat;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity 1s';
+ const box=document.createElement('div');
+ box.style.cssText='position:relative;max-width:min(86vw,760px);min-width:min(86vw,420px);box-sizing:border-box;padding:26px 34px 34px;border-radius:10px;background:'+MEMPANEL+';color:'+MEMCOLOR+';font-size:20px;line-height:1.9;white-space:pre-line;text-align:center';
+ const tx=document.createElement('div'),mk=document.createElement('div');
+ mk.textContent='▼';mk.style.cssText='position:absolute;right:16px;bottom:6px;font-size:14px;opacity:.55';
+ box.appendChild(tx);box.appendChild(mk);d.appendChild(box);document.body.appendChild(d);
+ let i=0,fin=0;
+ const show=()=>{tx.textContent=MEMPAGES[i];SE('talk')};
+ const next=()=>{
+  if(fin)return;
+  if(++i<MEMPAGES.length){show();return}
+  fin=1;MEM=null;d.style.transition='opacity .9s';d.style.opacity=0;setTimeout(()=>{d.remove();cb()},900);
+ };
+ d.onclick=next;MEM=next;show();
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{d.style.opacity=1}));
+}
 // 水晶竜を倒すと、水晶になっていた町の人が元に戻る
 function uncrystal(){
  const n=NPC[3];n.c='#d8d2c0';n.n='町の人';n.fn=()=>talk('町の人','ありがとう、旅の人! ……長い夢を見ていたみたいだ');
@@ -96,16 +131,13 @@ let JCB=null;
 const selectJob=n=>{JCB=()=>{state='talk';n()};state='select'};
 // Lv10以上で職業が見習いのまま教会の神父に話しかけたとき(ボス撃破後の流れで選び終えていない場合など)
 const S_JOB=[L('神父','……旅の方。あなたの内に、まだ形を持たない力が眠っています'),L('神父','その力に、形を与えましょう'),{as:selectJob},L('神父','……それが、あなたの選んだ道ですか。迷わず進みなさい')];
-// クリスタルドレイクを倒したあと: 撃破 → 記憶のかけら → ゼノアの教会で目覚める → 長老と火山の異変
+// クリスタルドレイクを倒したあと: 撃破 → 暗転して星空の記憶シーン(memScene) → ゼノアの教会で目覚める → 長老と火山の異変
 const S_END1=[
  L('クリスタルドレイク','なぜ……我を……'),
  {fn:shatter},
  L('','(竜の体が水晶のかけらになって、静かに砕け散った)'),
  L('','……。'),
- L('','(そのとき、頭の奥で、誰かの声がした)'),
- L('???','……忘れろ。それが、お前のためだ'),
- L('','(誰の声か、わからない。ただ、胸の奥がひどく痛んだ)'),
- {as:n=>fade(1,1,n)},{fn:toTown},{as:n=>fade(0,.9,n)},
+ {as:n=>fade(1,1,n)},{as:memScene},{fn:toTown},{as:n=>fade(0,.9,n)},
  L('','(見慣れた天井。教会のベッドの上で、目が覚めた)'),
  L(Ru,'{p}! ……よかった、目が覚めたのね'),
  L(Ru,'見て。水晶になってた人たち、みんな元に戻ったの。{p}が、水晶竜を倒してくれたんだよね'),
