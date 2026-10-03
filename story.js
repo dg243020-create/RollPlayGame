@@ -2,7 +2,13 @@
 (()=>{
 const BGMDIR='BGM/'; // BGM/mati1.mp3
 let bgm=null;
-function playBGM(n){if(bgm)bgm.pause();bgm=new Audio(BGMDIR+n+'.mp3');bgm.loop=true;bgm.volume=.5;bgm.play().catch(()=>{})}
+function playBGM(n){
+ if(bgm)bgm.pause();
+ const ex=['MP3','mp3','wav','ogg','m4a'];let k=0;
+ const a=bgm=new Audio();a.loop=true;a.volume=.5;
+ a.onerror=()=>{if(++k<ex.length){a.src=BGMDIR+n+'.'+ex[k];a.play().catch(()=>{})}else console.warn('BGMが見つかりません: '+BGMDIR+n+'.(mp3/wav/ogg/m4a)')};
+ a.src=BGMDIR+n+'.'+ex[0];a.play().catch(()=>{});
+}
 P.name='アルト';P.tour=0;
 const Ru='ルミ',L=(n,t)=>({n,t});
 let DQ=[],DI=0,DCB=null,DCH=null,CI=0;
@@ -33,14 +39,15 @@ function crystalize(){
  const n=NPC[3];n.c='#bfefff';n.n='水晶';n.fn=()=>talk('','水晶になった町の人。冷たく、動かない');
 }
 const S_INTRO=[
- L('','……。'),L('','(まぶたが重い。誰かの声が聞こえる)'),
- L(Ru,'あ、動いた! ……よかった。ねえ、あなた、どこから来たの?'),
+ L('','……。'),L('','(見知らぬ天井。柔らかいベッドの上で、目が覚めた)'),
+ L(Ru,'あ、目が覚めた! ……よかった。ねえ、あなた、どこから来たの?'),
  {o:[{t:'わからない。何も、思い出せないんだ',r:[L(Ru,'そっか……。無理に思い出さなくていいよ')]},{t:'……ここは、どこ?',r:[]}]},
- L(Ru,'ここはゼノアの町。倒れてたから、びっくりしたよ'),
+ L(Ru,'ここはゼノアの町。私の家の前で倒れてたの。びっくりしたよ'),
  L(Ru,'私はルミ。名前、思い出せる? 呼ぶとき困るから'),
  L('','……たぶん、こうだったと思う。'),
  {as:askName},
  L(Ru,'{p}、だね。……まず町を案内するね。ちょっと変な町だけど'),
+ L('','(ベッドから起き上がり、ルミと一緒に外へ出た)'),
  L(Ru,'ここが広場。人が少ないでしょ。みんな家に閉じこもってるの'),
  L('','【操作】WASD / 矢印キーで移動、E で話す・調べる、Tab でメニュー'),
  L(Ru,'あそこに立ってる人、動かないの。近づいて、Eで調べてみて')];
@@ -91,4 +98,28 @@ ov.style.cssText='position:fixed;inset:0;background:#10141fee;display:flex;align
 ov.textContent='クリックではじめる';
 ov.onclick=()=>{ov.remove();playBGM('mati1');scene(S_INTRO,()=>{P.tour=1})};
 document.body.appendChild(ov);
+// ===== マップ画像の差し替え(1440x864 = 画面と同じ縦横比) =====
+const setImg=(i,src)=>{const im=new Image();im.onload=()=>{FD[i].imOK=1};im.src=src;FD[i].im=im;FD[i].img=src};
+setImg(1,'RPG/sougen1.png');setImg(2,'RPG/doukutu1.png');setImg(3,'RPG/doukutu2.png');
+// 洞窟の出入口: 画像の黒い部分(右端 / 左端)に合わせる。黒の中には立たないよう、到着位置を内側にずらす
+FD[2].ex[1]={r:[W-50,130,W,350],to:3,p:[110,240],b:[W-10,130,10,220]};
+FD[3].ex=[{r:[0,130,50,350],to:2,p:[690,240],b:[0,130,10,220]}];
+// 町(mati1.png): 画像の横幅が 1584→1440 に変わったので、建物・NPCの位置を新しい画像に合わせて取り直す
+const t9=v=>v*W/1440,R9=(a,b,c,d,o)=>({x:t9(a),y:t9(b),w:t9(c-a),h:t9(d-b),...o});
+BLD.length=0;
+BLD.push(R9(72,72,432,288,{c:'#a8a0c0',n:'教会'}),R9(570,66,1014,366,{c:'#7a4a4a',n:'鍛冶屋'}),R9(1152,72,1368,288,{c:'#4a6a8a',n:'道具屋'}),R9(72,648,432,792,{c:'#8a6a3a',n:'家'}),R9(1300,720,1368,792,{c:'#c9a24a',n:'樽'}));
+Object.assign(WK,R9(72,72,1368,792,{}));Object.assign(CR,R9(648,792,936,864,{}));
+const mv=(o,x,y)=>{o.x=t9(x);o.y=t9(y)};
+mv(NPC[0],252,318);mv(NPC[1],1259,318);mv(NPC[2],792,405);mv(NPC[3],500,610);
+const ru=NPC.find(n=>n.n=='ルミ'),cr=NPC.find(n=>n.n=='水晶');mv(ru,860,560);mv(cr,1100,560);
+const brl=FD[0].ix.find(n=>n.hint=='E: 調べる'&&!n.n);mv(brl,1332,755);brl.fn=()=>{if(P.ch.brl){talk('','樽はもう空っぽだ');return}P.ch.brl=1;addG(5);talk('','樽の中を調べた! 5ゴールドを手に入れた')};
+// 最初は家の前(扉の外)から。ルミもそばに置く
+P.x=t9(252);P.y=t9(600);mv(ru,330,600);
+drawTown=function(){
+ if(!FD[FI].town)return;
+ g.save();g.textAlign='center';
+ if(TOWNOK)g.drawImage(TOWNIMG,0,0,W,H);else{g.fillStyle='#12421e';g.fillRect(0,0,W,H)}
+ for(const n of NPC){g.fillStyle=n.c;g.strokeStyle='#fff';g.lineWidth=2;g.beginPath();g.arc(n.x,n.y,12,0,7);g.fill();g.stroke();g.fillStyle='#fff';g.font='11px sans-serif';g.fillText(n.n,n.x,n.y-18)}
+ g.restore();
+};
 })();
