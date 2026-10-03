@@ -25,7 +25,7 @@ function nextLine(){
  if(l.o){DCH=l;CI=0;state='choice';showCh();return}
  if(l.as){l.as(nextLine);return}
  if(l.fn){l.fn();nextLine();return}
- talk(l.n,l.t.replace(/\{p\}/g,P.name));
+ SE('talk');talk(l.n.replace(/\{p\}/g,P.name),l.t.replace(/\{p\}/g,P.name));
 }
 function askName(cb){
  state='name';const d=document.createElement('div');
@@ -37,13 +37,13 @@ function askName(cb){
  i.onkeydown=e=>{e.stopPropagation();if(e.key=='Enter'&&!e.isComposing)ok()};
 }
 function crystalize(){
- ring(400,240,500,'#fff',.8);
+ ring(400,240,500,'#fff',.8);SE('flash'); // 町の人が水晶になる瞬間の音(koukaon/flash.mp3)
  if(bgm){bgm.pause();setTimeout(()=>{if(bgm)bgm.play().catch(()=>{})},2200)}
  const n=NPC[3];n.c='#bfefff';n.n='水晶';n.fn=()=>talk('','水晶になった町の人。冷たく、動かない');
 }
 // 暗転(DK)を to(0〜1)まで sec 秒かけて動かす
 function fade(to,sec,cb){const from=DK,t0=performance.now();(function f(){const k=Math.min(1,(performance.now()-t0)/(sec*1000));DK=from+(to-from)*k;if(k<1)requestAnimationFrame(f);else if(cb)cb()})()}
-function shatter(){ring(400,110,240,'#bfefff',.9);ring(400,110,120,'#fff',.6);if(bgm)bgm.pause();SE('bakuhatu')}
+function shatter(){ring(400,110,240,'#bfefff',.9);ring(400,110,120,'#fff',.6);if(bgm)bgm.pause();SE('flash')} // 竜が水晶のかけらになって砕ける音(koukaon/flash.mp3)
 // 水晶竜を倒すと、水晶になっていた町の人が元に戻る
 function uncrystal(){
  const n=NPC[3];n.c='#d8d2c0';n.n='町の人';n.fn=()=>talk('町の人','ありがとう、旅の人! ……長い夢を見ていたみたいだ');
@@ -76,6 +76,20 @@ const S_ELDER=[
  {o:[{t:'……僕が、行ってみる',r:[L(Ru,'……ほんとに? ありがとう。気をつけてね')]},
      {t:'まず、状況をもう少し聞かせてくれ',r:[L('長老','水晶になるのは町の者だけではない。森も洞窟も、少しずつな'),L(Ru,'……行くって決めたら、教えてね')]}]},
  L(Ru,'南の道から、エルフィア草原に出られるよ。……待ってるね')];
+// 水晶竜との初対面(ペルセ洞窟 最深部に初めて入ったとき1回だけ)。話者名の {p} は主人公の名前になる
+const D='水晶竜',H0='{p}';
+const S_MEET=[
+ L(D,'……来たか。'),
+ L(H0,'……お前が、この村を襲ったのか?'),
+ L(D,'襲った……?'),L(D,'ふっ……人間というものは、いつもそうだ。'),L(D,'己の目に映ったものだけを見て、答えを決める。'),
+ L(H0,'何を言ってる……?'),
+ L(D,'お前には……何も見えていない。'),L(D,'いや――見えているのに、思い出せないのか。'),
+ L(H0,'……俺のことを知っているのか?'),
+ L(D,'…………。'),L(D,'……その目。'),L(D,'やはり……お前なのか。'),
+ L(H0,'何の話だ!'),
+ L(D,'ならば、確かめるがいい。'),L(D,'この身を砕けば、お前の失った記憶の欠片が戻るだろう。'),L(D,'だが――'),L(D,'その記憶を取り戻すことが、世界を救うとは限らぬ。'),
+ L(H0,'……!'),
+ L(D,'来い、人の子よ。'),L(D,'お前が何者なのか――'),L(D,'我が、その記憶の中へ返してやろう。')];
 // クリスタルドレイクを倒したあと: 撃破 → 記憶のかけら → ゼノアの教会で目覚める → 長老と火山の異変
 const S_END1=[
  L('クリスタルドレイク','なぜ……我を……'),
@@ -166,9 +180,9 @@ addEventListener('keydown',e=>{
  if(['Space','Tab','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
  if(state=='talk'){if(!e.repeat&&['KeyE','Enter','Space'].includes(e.code))nextLine();return}
  const n=DCH.o.length;
- if(e.code=='KeyW'||e.code=='ArrowUp'){CI=(CI+n-1)%n;showCh()}
- else if(e.code=='KeyS'||e.code=='ArrowDown'){CI=(CI+1)%n;showCh()}
- else if(!e.repeat&&(e.code=='KeyE'||e.code=='Enter')){DQ.splice(DI,0,...DCH.o[CI].r);state='talk';nextLine()}
+ if(e.code=='KeyW'||e.code=='ArrowUp'){CI=(CI+n-1)%n;showCh();SE('cur')}
+ else if(e.code=='KeyS'||e.code=='ArrowDown'){CI=(CI+1)%n;showCh();SE('cur')}
+ else if(!e.repeat&&(e.code=='KeyE'||e.code=='Enter')){SE('ok');DQ.splice(DI,0,...DCH.o[CI].r);state='talk';nextLine()}
 },true);
 // 最初の画面: クリックでBGM開始(ブラウザは1回クリックされるまで音を出せないため)
 state='wait';
@@ -185,8 +199,8 @@ FD[2].ex[1]={r:[W-50,130,W,350],to:3,p:[110,240],b:[W-10,130,10,220]};
 FD[1].ex[2].p=[400,60]; // 草原の南の出口 → 洞窟の上から入る
 FD[2].ex[0]={r:[320,0,480,45],to:1,p:[360,345],b:[320,0,160,8]}; // 洞窟から戻る出口も上側に
 FD[3].ex=[]; // 最深部は左から入り、戻れない
-const sb=startBoss;startBoss=function(){sb();P.x=110;P.y=240}; // ボス戦開始時も左側から
-const gf=goField;goField=function(i,s,x,y){gf(i,s,x,y);if(bgm&&MAPBGM[i])playBGM(MAPBGM[i]);if(i==2&&x===undefined){P.x=690;P.y=240}}; // 敗北して洞窟に戻るときは黒い部分の内側へ
+const sb=startBoss;startBoss=function(){sb();P.x=110;P.y=240;if(FI==3&&!P.ch.k0){P.ch.k0=1;scene(S_MEET,()=>playBGM('boss1'))}}; // ボス戦開始時も左側から / 初対面の会話が終わったら boss1 を流す
+const gf=goField;goField=function(i,s,x,y){gf(i,s,x,y);if(bgm&&MAPBGM[i]){if(i==3&&!P.ch.k0){bgm.pause();bgmName=''}else playBGM(MAPBGM[i])}if(i==2&&x===undefined){P.x=690;P.y=240}}; // 敗北して洞窟に戻るときは黒い部分の内側へ
 // クリスタルドレイク(ボス1)を倒したら、職業選択のあと(play に戻ってから)終幕の会話を始める
 const oh=hurt;hurt=function(e,m){const b=e&&e.boss&&!e.k2;oh(e,m);if(b&&e.hp<=0&&!P.ch.k1){P.ch.k1=1;END1=1}};
 // 町(mati1.png): 画像の横幅が 1584→1440 に変わったので、建物・NPCの位置を新しい画像に合わせて取り直す
