@@ -71,7 +71,7 @@ FD[5].ex=[exL(4)];
 for(const f of FD)if(f.img){const im=new Image();im.onload=()=>{f.imOK=1};im.src=f.img;f.im=im}
 // はじまりの草原 左上の謎の道: 1回目に調べると宝箱が現れ、2回目に開けると10G(開けられるのは1回だけ)
 function pathChest(){
- if(!P.ch.s){P.ch.s=1;ring(62,100,40,'#ffe27a',.6);talk('','道の奥を調べると、宝箱が現れた!');return}
+ if(!P.ch.s){P.ch.s=1;ring(62,100,40,'#ffe27a',.6);SE('shutugen');talk('','道の奥を調べると、宝箱が現れた!');return}
  if(P.ch.o){talk('','宝箱はもう空っぽだ');return}
  P.ch.o=1;addG(10);talk('','宝箱を開けた! 10ゴールドを手に入れた');
 }
@@ -113,6 +113,38 @@ const stp=()=>(P.lv-1)*3-P.st.reduce((a,b)=>a+b,0),pts=()=>P.lv-1-(P.ba-1)-(P.sk
 const say=s=>msg={t:2.4,s};
 // 画面の外の枠: 場所の名前 / 会話・調べたときの文章
 const $=id=>document.getElementById(id);
+// 設定(Tabメニューの「設定」タブ)。BGM音量・効果音(SE)音量は0〜100(%)。ブラウザに保存される
+const SET={bgm:50,se:50};
+try{const s=JSON.parse(localStorage.getItem('rpg_set')||'{}'),r=v=>Math.max(0,Math.min(100,Math.round(v/10)*10));if(Number.isFinite(s.bgm))SET.bgm=r(s.bgm);if(Number.isFinite(s.se))SET.se=r(s.se)}catch(e){}
+const saveSet=()=>{try{localStorage.setItem('rpg_set',JSON.stringify(SET))}catch(e){}};
+// ===== 効果音 =====
+// 音声ファイルは koukaon/ フォルダ(小文字 .mp3 → 大文字 .MP3 の順に探す)。ファイルのない音(メニュー・被ダメージ・魔法・回復)はコードで作る
+const SEDIR='koukaon/';
+const SEF={ken:{v:.8},lvup:{v:1},shutugen:{v:1},bakuhatu:{v:.9,max:1.6},kaimono:{v:1,gap:300},kirikae:{v:1}}; // v=音の大きさ / max=最大再生秒数 / gap=連続で鳴らさない間隔(ms)
+// コードで作る音: [開始Hz, 終了Hz, 長さ(秒), 波形, 大きさ]
+const SY={cur:[900,1200,.05,'square',.2],ok:[600,1000,.09,'square',.22],ng:[200,150,.12,'square',.2],open:[500,800,.08,'square',.2],close:[800,450,.08,'square',.2],dmg:[260,60,.22,'sawtooth',.45],mag:[1400,500,.12,'triangle',.3],mag2:[300,1000,.25,'sine',.35],heal:[500,1300,.3,'sine',.35]};
+const SEB={},seT={};let AC=null;
+function seBase(n){
+ if(SEB[n])return SEB[n];
+ const ex=['mp3','MP3'];let k=0;const a=new Audio();a.preload='auto';
+ a.onerror=()=>{if(++k<ex.length)a.src=SEDIR+n+'.'+ex[k];else{a.bad=1;console.warn('効果音が見つかりません: '+SEDIR+n+'.(mp3/MP3)')}};
+ a.src=SEDIR+n+'.'+ex[0];return SEB[n]=a;
+}
+function SE(n,vol=1){
+ if(SET.se<=0)return;
+ const now=performance.now(),f=SEF[n],gap=f&&f.gap||70;
+ if(now-(seT[n]||0)<gap)return;seT[n]=now;
+ try{
+  if(f){const b=seBase(n);if(b.bad)return;const a=b.cloneNode();a.volume=Math.min(1,SET.se/100*f.v*vol);a.play().catch(()=>{});if(f.max)setTimeout(()=>a.pause(),f.max*1000);return}
+  const y=SY[n];if(!y)return;
+  AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state=='suspended')AC.resume();
+  const t=AC.currentTime,o=AC.createOscillator(),gn=AC.createGain();
+  o.type=y[3];o.frequency.setValueAtTime(y[0],t);o.frequency.exponentialRampToValueAtTime(y[1],t+y[2]);
+  gn.gain.setValueAtTime(Math.max(.001,SET.se/100*y[4]*vol),t);gn.gain.exponentialRampToValueAtTime(.0001,t+y[2]);
+  o.connect(gn);gn.connect(AC.destination);o.start(t);o.stop(t+y[2]+.02);
+ }catch(e){}
+}
+Object.keys(SEF).forEach(seBase);
 const talk=(n,t)=>{$('tname').textContent=n||'';$('ttext').textContent=t;$('ttext').className=''};
 const talkClear=()=>{$('tname').textContent='';$('ttext').textContent='話しかけたり調べたりすると、ここに表示されます';$('ttext').className='hint'};
 const setLoc=()=>{const f=FD[FI];$('locn').textContent=f.n;$('loci').textContent=f.en?'出現する敵 Lv'+f.lv[0]+'〜'+f.lv[1]:f.boss?'ボス部屋':''};
@@ -130,7 +162,7 @@ function gain(n){
    if(!P.gm){P.gm=1;say('Lv'+GATE+'の試練! 洞窟の最深部のボスを倒せ')}
    break;
   }
-  P.exp-=need(P.lv);P.lv++;P.hp=maxHp();ring(P.x,P.y,140,'#ffe27a',.7);say('レベルアップ! Lv'+P.lv);
+  P.exp-=need(P.lv);P.lv++;P.hp=maxHp();ring(P.x,P.y,140,'#ffe27a',.7);say('レベルアップ! Lv'+P.lv);SE('lvup');
   if(P.lv==10){state='select'}
   if(P.lv==50)say('Lv50到達! 上級職はこれから実装予定')
  }
@@ -146,41 +178,44 @@ addEventListener('keydown',e=>{
  if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Tab'].includes(e.code))e.preventDefault();
  if(state=='select'){
   const j={Digit1:'knight',Digit2:'mage',Digit3:'healer'}[e.code];
-  if(j){P.job=j;P.sk=[1,1];state='play';P.hp=maxHp();say(JOBS[j].n+'に転職した!');ring(P.x,P.y,160,JOBS[j].c,.8)}
+  if(j){P.job=j;P.sk=[1,1];state='play';P.hp=maxHp();say(JOBS[j].n+'に転職した!');ring(P.x,P.y,160,JOBS[j].c,.8);SE('ok')}
   return;
  }
  if(state=='church'){
   if(e.code=='Escape'||e.code=='KeyE'){state='play';return}
-  if(e.code=='Digit1')state='skills';
-  else if(e.code=='Digit2')state='stats';
-  else if(e.code=='Digit3'){P.hp=maxHp();P.mp=maxMp();ring(P.x,P.y,70,'#7dff9d');chm='HP/MPが全回復した'}
+  if(e.code=='Digit1'){state='skills';SE('ok')}
+  else if(e.code=='Digit2'){state='stats';SE('ok')}
+  else if(e.code=='Digit3'){P.hp=maxHp();P.mp=maxMp();ring(P.x,P.y,70,'#7dff9d');chm='HP/MPが全回復した';SE('heal')}
   else if(e.code=='Digit4')saveGame();
   return}
  if(state=='menu'){
-  if(e.code=='Tab'||e.code=='Escape'){state='play';return}
-  if(e.code=='KeyA'||e.code=='ArrowLeft')MT=(MT+3)%4;
-  else if(e.code=='KeyD'||e.code=='ArrowRight')MT=(MT+1)%4;
-  else if(/^Digit[1-4]$/.test(e.code))MT=+e.code.slice(-1)-1;
-  else if(MT==0){const n=OWN().length;if(n){if(e.code=='KeyW'||e.code=='ArrowUp')MC=(MC+n-1)%n;else if(e.code=='KeyS'||e.code=='ArrowDown')MC=(MC+1)%n;else if(e.code=='KeyE'||e.code=='Enter')equipCur()}}
+  if(e.code=='Tab'||e.code=='Escape'){state='play';SE('close');return}
+  // 設定タブ: ↑↓で項目、←→(A/D)で値を変更。タブの切り替えは数字キー
+  if(MT==4&&(e.code=='KeyA'||e.code=='ArrowLeft'||e.code=='KeyD'||e.code=='ArrowRight')){const d=(e.code=='KeyD'||e.code=='ArrowRight')?10:-10,k=SEL?'se':'bgm';SET[k]=Math.max(0,Math.min(100,SET[k]+d));saveSet();SE(SEL?'ken':'cur');return}
+  if(e.code=='KeyA'||e.code=='ArrowLeft'){MT=(MT+4)%5;SE('cur')}
+  else if(e.code=='KeyD'||e.code=='ArrowRight'){MT=(MT+1)%5;SE('cur')}
+  else if(/^Digit[1-5]$/.test(e.code)){MT=+e.code.slice(-1)-1;SE('cur')}
+  else if(MT==4){if(e.code=='KeyW'||e.code=='ArrowUp'||e.code=='KeyS'||e.code=='ArrowDown'){SEL=1-SEL;SE('cur')}}
+  else if(MT==0){const n=OWN().length;if(n){if(e.code=='KeyW'||e.code=='ArrowUp'){MC=(MC+n-1)%n;SE('cur')}else if(e.code=='KeyS'||e.code=='ArrowDown'){MC=(MC+1)%n;SE('cur')}else if(e.code=='KeyE'||e.code=='Enter'){equipCur();SE('ok')}}}
   return}
  if(state=='smith'){
   if(e.code=='Escape'||(e.code=='KeyE'&&!e.repeat)){state='play';return}
   const n=smL().length;
-  if(e.code=='KeyA'||e.code=='ArrowLeft'){SMT=(SMT+4)%5;SMC=0;smm=''}
-  else if(e.code=='KeyD'||e.code=='ArrowRight'){SMT=(SMT+1)%5;SMC=0;smm=''}
-  else if(/^Digit[1-5]$/.test(e.code)){SMT=+e.code.slice(-1)-1;SMC=0;smm=''}
-  else if(n&&(e.code=='KeyW'||e.code=='ArrowUp'))SMC=(SMC+n-1)%n;
-  else if(n&&(e.code=='KeyS'||e.code=='ArrowDown'))SMC=(SMC+1)%n;
+  if(e.code=='KeyA'||e.code=='ArrowLeft'){SMT=(SMT+4)%5;SMC=0;smm='';SE('cur')}
+  else if(e.code=='KeyD'||e.code=='ArrowRight'){SMT=(SMT+1)%5;SMC=0;smm='';SE('cur')}
+  else if(/^Digit[1-5]$/.test(e.code)){SMT=+e.code.slice(-1)-1;SMC=0;smm='';SE('cur')}
+  else if(n&&(e.code=='KeyW'||e.code=='ArrowUp')){SMC=(SMC+n-1)%n;SE('cur')}
+  else if(n&&(e.code=='KeyS'||e.code=='ArrowDown')){SMC=(SMC+1)%n;SE('cur')}
   else if(e.code=='Enter')craft(smL()[SMC],e.shiftKey?10:1);
   return}
  if(state=='shop'){
   // 閉じる: E(長押しの連打で開いた直後に閉じないよう repeat は無視) / 売買: Enter(Shift+Enterで10個)
   if(e.code=='Escape'||e.code=='Tab'||(e.code=='KeyE'&&!e.repeat)){state='play';shp=null;return}
   if(e.code!='Enter'&&!e.code.startsWith('Shift'))shp=null; // 警告の確認待ちは、操作を変えたら解除
-  if(e.code=='KeyA'||e.code=='ArrowLeft'||e.code=='KeyD'||e.code=='ArrowRight'||e.code=='Digit1'||e.code=='Digit2'){SM=e.code=='Digit1'?0:e.code=='Digit2'?1:1-SM;SC=0;shm='';return}
+  if(e.code=='KeyA'||e.code=='ArrowLeft'||e.code=='KeyD'||e.code=='ArrowRight'||e.code=='Digit1'||e.code=='Digit2'){SM=e.code=='Digit1'?0:e.code=='Digit2'?1:1-SM;SC=0;shm='';SE('cur');return}
   const n=SM?sl().length:PL().length;
-  if(n&&(e.code=='KeyW'||e.code=='ArrowUp'))SC=(SC+n-1)%n;
-  else if(n&&(e.code=='KeyS'||e.code=='ArrowDown'))SC=(SC+1)%n;
+  if(n&&(e.code=='KeyW'||e.code=='ArrowUp')){SC=(SC+n-1)%n;SE('cur')}
+  else if(n&&(e.code=='KeyS'||e.code=='ArrowDown')){SC=(SC+1)%n;SE('cur')}
   else if(e.code=='Enter')trade(e.shiftKey?10:1);
   return}
  if(state=='skills'||state=='stats'){
@@ -188,16 +223,17 @@ addEventListener('keydown',e=>{
   else if(e.code=='KeyT')state='skills';
   else if(e.code=='KeyY')state='stats';
   else if(/^Digit[1-5]$/.test(e.code)){
-   const i=+e.code.slice(-1)-1;
+   const i=+e.code.slice(-1)-1,t0=P.ba+P.sk[0]+P.sk[1]+P.st.reduce((a,b)=>a+b,0);
    if(state=='skills'){if(pts()>0){if(i==0&&P.ba<15)P.ba++;else if(i>0&&i<3&&P.job!='none'&&P.sk[i-1]<15)P.sk[i-1]++}}
    else{const n=Math.min(e.shiftKey?10:1,stp(),100-P.st[i]);if(n>0)P.st[i]+=n}
+   if(t0!=P.ba+P.sk[0]+P.sk[1]+P.st.reduce((a,b)=>a+b,0))SE('ok');
   }
   return;
  }
  const pi={Digit1:0,Digit2:1,Digit3:2,Digit4:3}[e.code];if(pi!==undefined){usePot(pi);return}
  if(e.code=='KeyB'){if(B){E=[];B=null;clr();say('撤退した')}else startBoss();return}
  if(e.code=='KeyV'){if(B){E=[];B=null;clr();say('撤退した')}else startBoss2();return}
- if(e.code=='Tab'){state='menu';MC=0;return}
+ if(e.code=='Tab'){state='menu';MC=0;SE('open');return}
  if(e.code=='KeyE'){act();return}
  if(e.code=='KeyF'&&!B){goField((FI+1)%FD.length,-1);return}
  if(e.key=='+'||e.key=='=')setLv(P.lv+1);
@@ -216,13 +252,13 @@ function hurt(e,m){
 function use(i){
  if(P.cd[i]>0)return;const j=J();
  if(i==0){
-  P.cd[0]=aInt();const t=nearest(j.r+20);
+  P.cd[0]=aInt();SE(useMag()?'mag':'ken');const t=nearest(j.r+20);
   if(t){ring(t.x,t.y,16,j.c,.15);hurt(t,aMul())}else ring(P.x+P.face*24,P.y,14,j.c,.12);
   return;
  }
  const s=j.sk&&j.sk[i-1];if(!s)return;
  if(P.mp<s.mp){P.cd[i]=.4;fl(P.x,P.y-24,'MP不足','#8fd3ff',14);return}P.mp-=s.mp;
- P.cd[i]=scd(s,i-1);
+ P.cd[i]=scd(s,i-1);SE(s.heal?'heal':j.mg?'mag2':'ken');
  if(s.heal){P.hp=Math.min(maxHp(),P.hp+Math.round(maxHp()*sh(s,i-1)));fl(P.x,P.y-24,'HEAL','#7dff9d',18);ring(P.x,P.y,70,j.c);return}
  const t=s.self?null:nearest(230),cx=t?t.x:P.x,cy=t?t.y:P.y;
  ring(cx,cy,s.r,j.c,.45);
@@ -234,21 +270,21 @@ function usePot(i){
  const hp=t.k=='hp';if(hp?P.hp>=maxHp():P.mp>=maxMp()){fl(P.x,P.y-24,hp?'HP満タン':'MP満タン','#8fd3ff',14);return}
  P.it[t.id]--;P.pcd=1.5;
  if(hp)P.hp=Math.min(maxHp(),P.hp+Math.round(maxHp()*t.r));else P.mp=Math.min(maxMp(),P.mp+Math.round(maxMp()*t.r));
- fl(P.x,P.y-24,t.n,'#7dff9d',16);ring(P.x,P.y,50,hp?'#7dff9d':'#4a7bff',.3);
+ fl(P.x,P.y-24,t.n,'#7dff9d',16);ring(P.x,P.y,50,hp?'#7dff9d':'#4a7bff',.3);SE('heal');
 }
 function startBoss(){
  const lv=10,h=Math.round((10+lv*6+lv**3*.02)*20);
- E=[{x:400,y:110,lv,hp:h,mh:h,sp:30,dm:Math.round(3+lv*1.2),fl:0,rad:40,boss:1,n:'水晶竜 クリスタルドラゴン',cdT:2,ph:1}];B=E[0];clr();P.x=400;P.y=410;say('水晶竜 クリスタルドラゴン 出現!');
+ E=[{x:400,y:110,lv,hp:h,mh:h,sp:30,dm:Math.round(3+lv*1.2),fl:0,rad:40,boss:1,n:'水晶竜 クリスタルドラゴン',cdT:2,ph:1}];B=E[0];clr();P.x=400;P.y=410;say('水晶竜 クリスタルドラゴン 出現!');SE('shutugen');
 }
 function bossAtk(){
  const dm=Math.round(5+B.lv*1.8),n=3,k=B.ph==2?1.3:1;
  if(Math.random()<.5)HZ.push({x:B.x,y:B.y,r:Math.round(180*k),t:1.4,d:1.4,dm});
  else for(let i=0;i<n;i++){const t=1.1+i*.35;HZ.push({x:P.x+(i?(Math.random()-.5)*220:0),y:P.y+(i?(Math.random()-.5)*220:0),r:Math.round(65*k),t,d:t,dm})}
 }
-function pdmg(d,t){if(P.hit<=0){d=tk(d);P.hp-=d;P.hit=t;fl(P.x,P.y-24,'-'+d,'#ff6b6b',18)}}
+function pdmg(d,t){if(P.hit<=0){d=tk(d);P.hp-=d;P.hit=t;SE('dmg');fl(P.x,P.y-24,'-'+d,'#ff6b6b',18)}}
 function startBoss2(){
  const lv=P.lv,h=Math.round((10+lv*6+lv**3*.02)*24);
- E=[{x:400,y:110,lv,hp:h,mh:h,sp:0,dm:Math.round(3+lv*1.2),fl:0,rad:34,boss:1,k2:1,cdT:2,ph:1,tm:0,inv:0}];B=E[0];clr();P.x=400;P.y=410;say('ボス2戦開始!');
+ E=[{x:400,y:110,lv,hp:h,mh:h,sp:0,dm:Math.round(3+lv*1.2),fl:0,rad:34,boss:1,k2:1,cdT:2,ph:1,tm:0,inv:0}];B=E[0];clr();P.x=400;P.y=410;say('ボス2戦開始!');SE('shutugen');
 }
 function startUlt(k){
  const sp=k=='spin';U={k,t:0,dur:sp?6.2:6.4,a:Math.random()*6.28};B.ph++;B.inv=U.dur+.3;PJ=[];LS=[];
@@ -307,7 +343,7 @@ function update(dt){
  for(const e of E){
   const d=Math.hypot(P.x-e.x,P.y-e.y)||1;
   if(d>22+(e.rad||0)){e.x+=(P.x-e.x)/d*e.sp*dt;e.y+=(P.y-e.y)/d*e.sp*dt}
-  else if(P.hit<=0){const td=tk(e.dm);P.hit=.8;P.hp-=td;fl(P.x,P.y-24,'-'+td,'#ff6b6b',16)}
+  else if(P.hit<=0){const td=tk(e.dm);P.hit=.8;P.hp-=td;SE('dmg');fl(P.x,P.y-24,'-'+td,'#ff6b6b',16)}
   e.fl=Math.max(0,e.fl-dt);
  }
  if(B&&B.k2)boss2(dt);
@@ -315,7 +351,7 @@ function update(dt){
   B.cdT-=dt;if(B.cdT<=0){bossAtk();B.cdT=2.4}
   if(B.hp<B.mh/2&&B.ph==1){B.ph=2;say('ボスが怒った! 技の範囲が広がる')}
  }
- for(const h of HZ){h.t-=dt;if(h.t<=0){ring(h.x,h.y,h.r,'#ff4d4d',.4);if(Math.hypot(P.x-h.x,P.y-h.y)<h.r+10){const td=tk(h.dm);P.hp-=td;P.hit=.5;fl(P.x,P.y-24,'-'+td,'#ff6b6b',18)}}}
+ for(const h of HZ){h.t-=dt;if(h.t<=0){ring(h.x,h.y,h.r,'#ff4d4d',.4);SE('bakuhatu');if(Math.hypot(P.x-h.x,P.y-h.y)<h.r+10){const td=tk(h.dm);P.hp-=td;P.hit=.5;SE('dmg');fl(P.x,P.y-24,'-'+td,'#ff6b6b',18)}}}
  HZ=HZ.filter(h=>h.t>0);
  if(P.hp<=0){const bb=B;P.hp=maxHp();P.x=400;P.y=240;E=[];B=null;clr();if(FD[FI].boss&&!P.gk)goField(FI-1,1);say(bb?'ボスに敗れた…':'倒れた…中央から再開')}
  F=F.filter(f=>(f.t-=dt)>0);R=R.filter(r=>(r.t-=dt)>0);msg.t-=dt;
@@ -410,8 +446,8 @@ function trade(q){
  if(!SM){
   const t=PL()[SC];if(!t)return;
   q=Math.min(q,Math.floor(P.gold/t.p),99-(P.it[t.id]||0));
-  if(q<1){shm=(P.it[t.id]||0)>=99?'これ以上持てない':'ゴールドが足りない';return}
-  P.gold-=q*t.p;P.it[t.id]=(P.it[t.id]||0)+q;shm=t.n+'を'+q+'個買った';
+  if(q<1){shm=(P.it[t.id]||0)>=99?'これ以上持てない':'ゴールドが足りない';SE('ng');return}
+  P.gold-=q*t.p;P.it[t.id]=(P.it[t.id]||0)+q;shm=t.n+'を'+q+'個買った';SE('kaimono');
  }else{
   const l=sl(),k=l[SC];if(!k)return;
   q=Math.min(q,P.inv[k]);
@@ -421,7 +457,7 @@ function trade(q){
    shp={k,q};const rs=keepR(k);
    shm='⚠ '+ITEMS[k][0]+'は鍛冶屋で必要('+rs.slice(0,2).join('・')+(rs.length>2?'など':'')+'に計'+kp+'個)。売るならもう一度Enter';return}
   shp=null;
-  P.gold+=q*SELL[k];P.inv[k]-=q;shm=ITEMS[k][0]+'を'+q+'個売った (+'+q*SELL[k]+'G)';
+  P.gold+=q*SELL[k];P.inv[k]-=q;SE('kaimono');shm=ITEMS[k][0]+'を'+q+'個売った (+'+q*SELL[k]+'G)';
   SC=Math.min(SC,Math.max(0,sl().length-1));
  }
 }
@@ -494,13 +530,13 @@ function reqMap(){
 }
 function craft(r,q){
  if(!r)return;
- if(r.t!='m'&&P.cr[r.id]){smm='もう作った';return}
+ if(r.t!='m'&&P.cr[r.id]){smm='もう作った';SE('ng');return}
  const can=Math.min(...Object.entries(r.m).map(([k,n])=>Math.floor((P.inv[k]||0)/n)));
- if(can<1){smm='素材が足りない';return}
+ if(can<1){smm='素材が足りない';SE('ng');return}
  if(r.t=='m'){q=Math.min(q,can,99-(P.inv[r.id]||0));if(q<1){smm='これ以上持てない';return}}else q=1;
  for(const[k,n]of Object.entries(r.m))P.inv[k]-=n*q;
- if(r.t=='m'){P.inv[r.id]=(P.inv[r.id]||0)+q;smm=r.n+'を'+q+'個作った (所持 '+P.inv[r.id]+')';return}
- P.cr[r.id]=1;const cur=P.eq[r.t];
+ if(r.t=='m'){SE('ok');P.inv[r.id]=(P.inv[r.id]||0)+q;smm=r.n+'を'+q+'個作った (所持 '+P.inv[r.id]+')';return}
+ P.cr[r.id]=1;SE('ok');const cur=P.eq[r.t];
  if(!cur||ev(cur)<ev(r)){P.eq[r.t]=r;smm=r.n+'を作って装備した!'}else smm=r.n+'を作った';
 }
 let SMT=0,SMC=0;
@@ -535,14 +571,14 @@ function drawTown(){
  g.restore();
 }
 const gd=()=>{if(B)return 0;const f=FD[FI];if(f.town)return P.y>EXY&&P.x>CR.x&&P.x<CR.x+CR.w?{to:1,p:[400,70]}:0;for(const e of f.ex||[])if(P.x>=e.r[0]&&P.x<=e.r[2]&&P.y>=e.r[1]&&P.y<=e.r[3])return e;return 0}; // 出口の近くなら、その出口を返す
-function act(){for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60)){n.fn();return}const e=gd();if(e)goField(e.to,0,e.p[0],e.p[1])}
+function act(){for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60)){n.fn();return}const e=gd();if(e){SE('kirikae');goField(e.to,0,e.p[0],e.p[1])}}
 function drawIx(){g.save();g.textAlign='center';g.font='11px sans-serif';g.fillStyle='#ffe27a';for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60))g.fillText(n.hint||'E: 話す',n.x,n.y+28);const e=gd();if(e){const tw=FD[FI].town;let x,y;if(tw){x=CR.x+CR.w/2;y=EXY-22}else{x=Math.max(70,Math.min(W-70,(e.r[0]+e.r[2])/2));y=e.r[1]<10?e.r[3]+20:e.r[3]>H-10?e.r[1]-34:236}g.fillText('E: 移動',x,y);if(!tw)g.fillText(FD[e.to].n,x,y+16)}g.restore()}
-let MT=0,MC=0;
+let MT=0,MC=0,SEL=0; // SEL: 設定タブで選んでいる項目(0=BGM 1=SE)
 const OWN=()=>['w','a','s'].flatMap(t=>RC.filter(r=>P.cr[r.id]&&r.t==t).sort((a,b)=>a.v-b.v));
 function equipCur(){const r=OWN()[MC];if(r)P.eq[r.t]=P.eq[r.t]==r?null:r}
 function drawMenu(){
  g.fillStyle='#000e';g.fillRect(0,0,W,H);
- ['ステータス','装備・道具','素材','操作'].forEach((n,i)=>{const x=40+i*180;g.fillStyle=i==MT?'#ffe27a':'#2c3a52';g.fillRect(x,18,170,32);g.fillStyle=i==MT?'#10141f':'#8b94a8';g.font='bold 15px sans-serif';g.textAlign='center';g.fillText(n,x+85,40)});
+ ['ステータス','装備・道具','素材','操作','設定'].forEach((n,i)=>{const x=20+i*152;g.fillStyle=i==MT?'#ffe27a':'#2c3a52';g.fillRect(x,18,144,32);g.fillStyle=i==MT?'#10141f':'#8b94a8';g.font='bold 15px sans-serif';g.textAlign='center';g.fillText(n,x+72,40)});
  g.textAlign='left';g.fillStyle='#e8ecf5';g.font='15px sans-serif';
  const own=OWN(),eq=P.eq,df=dfn();
  if(MT==0){
@@ -565,11 +601,20 @@ function drawMenu(){
   const ks=Object.keys(P.inv).filter(k=>P.inv[k]>0);
   if(!ks.length){g.fillStyle='#8b94a8';g.fillText('まだ素材を持っていない',60,100)}
   ks.forEach((k,i)=>{const x=60+(i%2)*360,y=84+(i>>1)*30;g.fillStyle=ITEMS[k][1];g.fillRect(x,y,12,12);g.fillStyle='#e8ecf5';g.textAlign='left';g.fillText(ITEMS[k][0],x+22,y+12);g.textAlign='right';g.fillText('x'+P.inv[k],x+320,y+12);g.textAlign='left'});
- }else{
+ }else if(MT==3){
   const L=[['移動','WASD / 矢印キー'],['攻撃','Space'],['スキル','K / L'],['道具','1 / 2 / 3 / 4 (HP / MP / ハイHP / ハイMPポーション)'],['アクション','E (話す・調べる・お店や教会を使う・出口で移動)'],['メニュー','Tab (開く / 閉じる)'],['お店・教会','道具屋・鍛冶屋は ↑↓ と Enter、教会は数字キー、E で閉じる']];
   L.forEach(([a,b],i)=>{const y=100+i*46;g.textAlign='left';g.font='bold 15px sans-serif';g.fillStyle='#ffe27a';g.fillText(a,60,y);g.font='14px sans-serif';g.fillStyle='#e8ecf5';g.fillText(b,190,y)});
+ }else{
+  // 設定: ↑↓ で項目を選び、←→ で10%ずつ変更(自動で保存される)
+  g.fillStyle='#ffe27a';g.font='bold 15px sans-serif';g.textAlign='left';g.fillText('音量',60,92);
+  [['BGM音量',SET.bgm,'#4aa8ff'],['効果音(SE)音量',SET.se,'#7dff9d']].forEach(([n,v,c],i)=>{const y=108+i*84,sel=i==SEL;
+   g.fillStyle=sel?'#ffe27a':'#2c3a52';g.fillRect(60,y,680,68);g.fillStyle='#10141f';g.fillRect(62,y+2,676,64);
+   g.fillStyle=sel?'#fff':'#8b94a8';g.font='bold 16px sans-serif';g.textAlign='left';g.fillText((sel?'▶ ':'   ')+n,80,y+27);
+   g.textAlign='right';g.fillStyle=sel?'#ffe27a':'#8b94a8';g.fillText(v+'%',720,y+27);
+   bar(80,y+40,640,12,v/100,c)});
+  g.textAlign='left';g.fillStyle='#8b94a8';g.font='13px sans-serif';g.fillText('↑↓ で項目を選ぶ ・ ←→ か A/D で10%ずつ変更(自動で保存されます)',60,290);
  }
- g.textAlign='center';g.fillStyle='#8b94a8';g.font='13px sans-serif';g.fillText('←→ か A/D でタブ切替 ・ '+(MT==0?'↑↓ で選ぶ ・ E で装備/はずす ・ ':'')+'Tab か Esc で閉じる',W/2,H-16);
+ g.textAlign='center';g.fillStyle='#8b94a8';g.font='13px sans-serif';g.fillText((MT==4?'数字キー 1〜5 でタブ切替 ・ ':'←→ か A/D でタブ切替 ・ ')+(MT==0?'↑↓ で選ぶ ・ E で装備/はずす ・ ':'')+'Tab か Esc で閉じる',W/2,H-16);
 }
 let chm='',DBH=null,UID=null,touch=0,LOCALT=0,saving=0;
 const snap=()=>({v:1,t:Date.now(),lv:P.lv,exp:P.exp,job:P.job,sk:P.sk,ba:P.ba,st:P.st,inv:P.inv,eq:{w:P.eq.w?P.eq.w.id:null,a:P.eq.a?P.eq.a.id:null,s:P.eq.s?P.eq.s.id:null},cr:P.cr,gk:P.gk,gold:P.gold,it:P.it,ch:P.ch,b2:P.b2});
