@@ -122,7 +122,7 @@ const saveSet=()=>{try{localStorage.setItem('rpg_set',JSON.stringify(SET))}catch
 // ===== 効果音 =====
 // 音声ファイルは koukaon/ フォルダ(小文字 .mp3 → 大文字 .MP3 の順に探す)。ファイルのない音(メニュー・被ダメージ・魔法・回復)はコードで作る
 const SEDIR='koukaon/';
-const SEF={ken:{v:.8},lvup:{v:1},shutugen:{v:1},bakuhatu:{v:.9,max:1.6},kaimono:{v:1,gap:300},kirikae:{v:1}}; // v=音の大きさ / max=最大再生秒数 / gap=連続で鳴らさない間隔(ms)
+const SEF={ken:{v:.8},lvup:{v:1},shutugen:{v:1},bakuhatu:{v:.9,max:1.6},kaimono:{v:1,gap:300},kirikae:{v:1},flash:{v:1,gap:300}}; // v=音の大きさ / max=最大再生秒数 / gap=連続で鳴らさない間隔(ms)。flash=水晶化・水晶竜が砕ける時の音
 // コードで作る音: [開始Hz, 終了Hz, 長さ(秒), 波形, 大きさ]
 const SY={cur:[900,1200,.05,'square',.2],ok:[600,1000,.09,'square',.22],ng:[200,150,.12,'square',.2],open:[500,800,.08,'square',.2],close:[800,450,.08,'square',.2],dmg:[260,60,.22,'sawtooth',.45],mag:[1400,500,.12,'triangle',.3],mag2:[300,1000,.25,'sine',.35],heal:[500,1300,.3,'sine',.35]};
 const SEB={},seT={};let AC=null;
