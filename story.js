@@ -7,7 +7,7 @@ function playBGM(n){
  if(n==bgmName&&bgm&&!bgm.paused)return;
  bgmName=n;if(bgm)bgm.pause();
  const ex=['MP3','mp3','wav','ogg','m4a'];let k=0;
- const a=bgm=new Audio();a.loop=true;a.volume=.5;
+ const a=bgm=new Audio();a.loop=true;a.volume=SET.bgm/100; // 音量は設定(Tabメニュー→設定)で変更
  a.onerror=()=>{if(++k<ex.length){a.src=BGMDIR+n+'.'+ex[k];a.play().catch(()=>{})}else console.warn('BGMが見つかりません: '+BGMDIR+n+'.(mp3/wav/ogg/m4a)')};
  a.src=BGMDIR+n+'.'+ex[0];a.play().catch(()=>{});
 }
@@ -84,7 +84,7 @@ let lavaT=0;
 function lava(now){
  const c=LAVA[FI];if(!c||state!='play'||now<lavaT)return;
  for(const[x,y]of c){const cx=Math.max(x*40,Math.min(P.x,x*40+40)),cy=Math.max(y*40,Math.min(P.y,y*40+40));
-  if(Math.hypot(P.x-cx,P.y-cy)<10){const d=Math.max(1,Math.ceil(maxHp()*.05));P.hp-=d;lavaT=now+800;fl(P.x,P.y-24,'-'+d,'#ff8a3a',16);ring(P.x,P.y,30,'#ff6a2a',.25);return}}
+  if(Math.hypot(P.x-cx,P.y-cy)<10){const d=Math.max(1,Math.ceil(maxHp()*.05));P.hp-=d;SE('dmg');lavaT=now+800;fl(P.x,P.y-24,'-'+d,'#ff8a3a',16);ring(P.x,P.y,30,'#ff6a2a',.25);return}}
 }
 // 死亡演出: 暗転 → 神父のメッセージ → 教会で復活(デスペナルティなし)
 let DK=0,dk=0,lastMsg=msg,lastT=performance.now(); // DK=暗転の濃さ(0〜1) / dk=0なし 1暗転中 2神父の会話 3明るくなる中
@@ -109,7 +109,8 @@ function tick(){
  if(trail.length>=11){RU.x+=(trail[0].x-RU.x)*.2;RU.y+=(trail[0].y-RU.y)*.2}
 }
 // 画面の状態が変わったことを検知(お店や教会を閉じたときにイベントを起こす)
-let ps=state;(function watch(){if(state!=ps){const o=ps;ps=state;onSt(o,state)}lava(performance.now());tick();death(performance.now());requestAnimationFrame(watch)})();
+// BGMの音量は毎フレーム設定(SET.bgm)に合わせる
+let ps=state;(function watch(){if(state!=ps){const o=ps;ps=state;onSt(o,state)}if(bgm)bgm.volume=Math.max(0,Math.min(1,SET.bgm/100));lava(performance.now());tick();death(performance.now());requestAnimationFrame(watch)})();
 // キー入力: 会話中・選択中・開始前は、元のキー処理より先に受け取って止める
 addEventListener('keydown',e=>{
  if(state=='wait'||state=='dead'){e.stopImmediatePropagation();return}
