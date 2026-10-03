@@ -39,8 +39,9 @@ function askName(cb){
 function crystalize(){
  ring(400,240,500,'#fff',.8);SE('flash'); // 町の人が水晶になる瞬間の音(koukaon/flash.mp3)
  if(bgm){bgm.pause();setTimeout(()=>{if(bgm)bgm.play().catch(()=>{})},2200)}
- const n=NPC[3];n.c='#bfefff';n.n='水晶';n.fn=()=>talk('','水晶になった町の人。冷たく、動かない');
+ setCry();
 }
+function setCry(){const n=NPC[3];n.c='#bfefff';n.n='水晶';n.fn=()=>talk('','水晶になった町の人。冷たく、動かない')}
 // 暗転(DK)を to(0〜1)まで sec 秒かけて動かす
 function fade(to,sec,cb){const from=DK,t0=performance.now();(function f(){const k=Math.min(1,(performance.now()-t0)/(sec*1000));DK=from+(to-from)*k;if(k<1)requestAnimationFrame(f);else if(cb)cb()})()}
 function shatter(){ring(400,110,240,'#bfefff',.9);ring(400,110,120,'#fff',.6);if(bgm)bgm.pause();SE('flash')} // 竜が水晶のかけらになって砕ける音(koukaon/flash.mp3)
@@ -90,6 +91,11 @@ const S_MEET=[
  L(D,'ならば、確かめるがいい。'),L(D,'この身を砕けば、お前の失った記憶の欠片が戻るだろう。'),L(D,'だが――'),L(D,'その記憶を取り戻すことが、世界を救うとは限らぬ。'),
  L(H0,'……!'),
  L(D,'来い、人の子よ。'),L(D,'お前が何者なのか――'),L(D,'我が、その記憶の中へ返してやろう。')];
+// 転職: 会話の途中で職業選択画面を開き、選び終わったら会話の続きに戻る(戻す処理は onSt の 'select' → 'play')
+let JCB=null;
+const selectJob=n=>{JCB=()=>{state='talk';n()};state='select'};
+// Lv10以上で職業が見習いのまま教会の神父に話しかけたとき(ボス撃破後の流れで選び終えていない場合など)
+const S_JOB=[L('神父','……旅の方。あなたの内に、まだ形を持たない力が眠っています'),L('神父','その力に、形を与えましょう'),{as:selectJob},L('神父','……それが、あなたの選んだ道ですか。迷わず進みなさい')];
 // クリスタルドレイクを倒したあと: 撃破 → 記憶のかけら → ゼノアの教会で目覚める → 長老と火山の異変
 const S_END1=[
  L('クリスタルドレイク','なぜ……我を……'),
@@ -105,6 +111,11 @@ const S_END1=[
  L(Ru,'見て。水晶になってた人たち、みんな元に戻ったの。{p}が、水晶竜を倒してくれたんだよね'),
  {o:[{t:'……ああ。みんなが無事で、よかった',r:[L(Ru,'うん。……ありがとう、{p}')]},
      {t:'……倒したのに、胸が苦しいんだ',r:[L(Ru,'……何か、思い出したの? 無理に話さなくていいよ。そばにいるから')]}]},
+ L('神父','……目覚めましたか。水晶竜の力が消え、あなたの内に眠っていたものが、動き出しています'),
+ L('神父','その力に、形を与えましょう。ここは、そのための場所です'),
+ L('','(神父が静かに祈りを捧げると、胸の奥で、何かが熱を帯びた)'),
+ {as:selectJob},
+ L('神父','……それが、あなたの選んだ道ですか。迷わず進みなさい'),
  L('','(杖をつく音が近づいてきた)'),
  L('長老','……よくやってくれた、旅の者。町を代表して、礼を言う'),
  L('長老','だが……気のせいかの。空が、少し暗くなった気がせんか'),
@@ -118,9 +129,10 @@ const HINT={0.5:'扉の前で、Eを押して外に出よう',0.6:'外に出て�
 addN({x:tx(1100),y:ty(560),n:'水晶',c:'#bfefff',hint:'E: 調べる',fn:()=>{const t=L('','冷たく、透き通っている。人の形をした水晶だ');if(P.tour==1){P.tour=2;scene([t,...S_CRY])}else talk('',t.t)}});
 addN({x:tx(860),y:ty(560),n:'ルミ',c:'#ffb3d1',r:40,hint:'E: 話す',fn:()=>talk(Ru,HINT[P.tour]||'南の道から、エルフィア草原に行けるよ')});
 const f0=NPC[0].fn,f2=NPC[2].fn;let gift=0; // gift: 鍛冶屋でもらう20Gは1回だけ
-NPC[0].fn=()=>P.tour==6?(P.tour=7,scene(S_CH,f0)):f0();
+NPC[0].fn=()=>P.tour==6?(P.tour=7,scene(S_CH,f0)):P.lv>=10&&P.job=='none'?scene(S_JOB):f0();
 NPC[2].fn=()=>P.tour==2?(P.tour=3,scene(S_SMITH,()=>{if(!gift){gift=1;P.gold+=20}f2()})):f2();
 function onSt(o,s){if(s!='play')return;
+ if(o=='select'&&JCB){const f=JCB;JCB=null;f();return}
  if(o=='smith'&&P.tour==3){
   if(P.cr.w0){P.tour=6;scene([...S_BOUGHT,...S_CRYSTAL])} // 始まりの剣を買ったら次へ
   else scene([L(Ru,'あれ、剣は買わないの? 外は危ないから、持っておこうよ')])}
@@ -158,6 +170,7 @@ function tick(){
 // 現在の目標(画面下、ゴールドの左の枠)。進行度 P.tour から決める。空なら「―」
 function goalText(){
  const k=P.tour;
+ if(P.lv>=10&&P.job=='none')return '教会で転職する';
  if(k==0.5||k==0.6)return '家の外に出る';
  if(k==1)return '広場の水晶を調べる';
  if(k==2)return '鍛冶屋に行く';
@@ -165,7 +178,7 @@ function goalText(){
  if(k==6)return '教会に行く';
  if(k==7||k==8)return '長老の話を聞く';
  if(k==9)return P.gk?'':'「水晶竜」を探しに行く';
- if(k==10)return FI==5?'炎竜を探す':'ハルシアの森を抜けて、ラグナ火山へ';
+ if(k==10)return FI==6?'炎竜を探す':'ハルシアの森を抜けて、ラグナ火山へ';
  return '';
 }
 // 画面の状態が変わったことを検知(お店や教会を閉じたときにイベントを起こす)
@@ -189,7 +202,23 @@ state='wait';
 const ov=document.createElement('div');
 ov.style.cssText='position:fixed;inset:0;background:#10141fee;display:flex;align-items:center;justify-content:center;z-index:30;cursor:pointer;color:#e8ecf5;font-size:20px';
 ov.textContent='クリックではじめる';
-ov.onclick=()=>{ov.remove();playBGM('mati1');scene(S_INTRO,()=>{P.tour=0.5})};
+// ロゴ(RPG/logo1.png): 白地にフェードイン → 少し見せて → フェードアウト。クリックで飛ばせる
+function showLogo(cb){
+ const d=document.createElement('div');
+ d.style.cssText='position:fixed;inset:0;background:#fff;z-index:40;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .8s;cursor:pointer';
+ const im=new Image();im.style.cssText='width:min(96vw,900px);max-height:90vh;object-fit:contain';
+ im.onerror=()=>{im.remove();d.textContent='RE:DRAKELIA';d.style.color='#111';d.style.font='bold 40px sans-serif'}; // 画像が読めないときの代わり
+ im.src='RPG/logo1.png';d.appendChild(im);document.body.appendChild(d);
+ let done=0;const end=()=>{if(done)return;done=1;d.style.opacity=0;setTimeout(()=>{d.remove();cb()},800)};
+ d.onclick=end;
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{d.style.opacity=1}));
+ setTimeout(end,3200);
+}
+// セーブデータで始めるとき(beginGame に d が渡される): ロゴのあと、ゼノアの教会で再開する
+let RESUME=0,STARTED=0;
+function resume(){state='play';goField(0,0);P.x=t9(252);P.y=t9(345);P.hp=maxHp();P.mp=maxMp();P.hit=0;E=[];B=null;clr();if(P.ch.k1)uncrystal();else if(P.tour>=6)setCry();talkClear()}
+const bg0=beginGame;beginGame=function(d){bg0(d);if(d&&Number.isFinite(d.lv)){state='wait';RESUME=1;if(STARTED){DQ=[];DCB=null;showLogo(()=>{RESUME=0;resume()})}}};
+ov.onclick=()=>{STARTED=1;state='wait';ov.remove();playBGM('mati1');showLogo(()=>{if(RESUME){RESUME=0;resume()}else scene(S_INTRO,()=>{P.tour=0.5})})};
 document.body.appendChild(ov);
 // ===== マップ画像の差し替え(1440x864 = 画面と同じ縦横比) =====
 const setImg=(i,src)=>{const im=new Image();im.onload=()=>{FD[i].imOK=1};im.src=src;FD[i].im=im;FD[i].img=src};
