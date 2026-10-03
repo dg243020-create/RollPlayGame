@@ -116,6 +116,7 @@ const XPN=2.5; // 必要経験値の倍率(大きいほどレベルが上がり�
 const J=()=>JOBS[P.job],need=l=>Math.round((10+l*l*3)*XPN),maxHp=()=>J().hp+P.lv*4+P.st[0]*3,maxMp=()=>20+P.lv*2+P.st[1]*2,aInt=()=>{const a=J().a;return Math.max(a[2],a[0]-a[1]*P.lv)*(1-.02*(P.ba-1))},aMul=()=>{const a=J().a;return (a[3]+a[4]*P.lv)*(1+.08*(P.ba-1))};
 const stp=()=>(P.lv-1)*3-P.st.reduce((a,b)=>a+b,0),pts=()=>P.lv-1-(P.ba-1)-(P.sk[0]-1)-(P.sk[1]-1),sm=(s,i)=>(s.m||0)*(1+.12*(P.sk[i]-1)),scd=(s,i)=>s.cd*(1-.03*(P.sk[i]-1)),sh=(s,i)=>(s.heal||0)*(1+.05*(P.sk[i]-1))*(1+.02*P.st[3]);
 const say=s=>msg={t:2.4,s};
+let RW=null; // 初めてボス1を倒したときの報酬{xp,g}。字幕を出さず、ゼノアでの演出(長老との会話)のあとに story.js が渡す
 // 画面の外の枠: 場所の名前 / 会話・調べたときの文章
 const $=id=>document.getElementById(id);
 // 設定(Tabメニューの「設定」タブ)。BGM音量・効果音(SE)音量は0〜100(%)。ブラウザに保存される
@@ -251,7 +252,7 @@ function hurt(e,m){
  if(e.inv>0){const t=performance.now();if(t-(e.ft||0)>400){e.ft=t;fl(e.x,e.y-14,'無敵','#ffe27a',15)}return}
  const cr=Math.random()<.15,d=Math.round((useMag()?magV():atkV())*m*(.9+Math.random()*.2)*(cr?2:1));
  e.hp-=d;e.fl=.1;fl(e.x,e.y-14,d+(cr?'!':''),cr?'#ffd84a':'#fff',cr?24:15);
- if(e.hp<=0){E.splice(E.indexOf(e),1);if(e.boss){B=null;clr();say('ボス撃破!');if(e.k2&&!P.b2){P.b2=1;say('ボス2撃破! 道具屋にハイポーションが並ぶ')}if(!e.k2&&P.lv==GATE-1&&!P.gk){P.gk=1;say('試練達成!')}gain(Math.round(need(P.lv)*(e.k2?1.2:.8)));addG(e.k2?400:250)}else{gain(Math.round((4+e.lv*2)*(e.xp||1)));addG(Math.round((2+e.lv*1.2)*(e.xp||1)));drop(e)}}
+ if(e.hp<=0){E.splice(E.indexOf(e),1);if(e.boss){B=null;clr();const f1=!e.k2&&!P.ch.k1,xp=Math.round(need(P.lv)*(e.k2?1.2:.8)),gg=e.k2?400:250;if(!f1)say('ボス撃破!');if(e.k2&&!P.b2){P.b2=1;say('ボス2撃破! 道具屋にハイポーションが並ぶ')}if(!e.k2&&P.lv==GATE-1&&!P.gk){P.gk=1;if(!f1)say('試練達成!')}if(f1)RW={xp,g:gg};else{gain(xp);addG(gg)}}else{gain(Math.round((4+e.lv*2)*(e.xp||1)));addG(Math.round((2+e.lv*1.2)*(e.xp||1)));drop(e)}}
 }
 function use(i){
  if(P.cd[i]>0)return;const j=J();
