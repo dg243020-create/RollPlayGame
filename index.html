@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>RPG プロトタイプ</title>
+<title>RE:DRAKELIA</title>
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#10141f;--ink:#e8ecf5;--mut:#8b94a8}
 html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
@@ -59,6 +59,7 @@ const FD=[
  {n:'ペルセ洞窟',e:'PERSE',lv:[6,14],bg:'#1f1e2b',gr:'#2b2a3d',en:[['bat',4],['golem',2],['spider',3]]},
  {n:'ペルセ洞窟 最深部',e:'PERSE',lv:[0,0],bg:'#120f1a',gr:'#221d30',boss:1,en:null},
  {n:'ハルシアの森',e:'HALSIA',lv:[14,28],bg:'#14281c',gr:'#1d3a2a',en:[['wolf',4],['spore',3],['bee',3]]},
+ {n:'ユグドラ',e:'YGGDRA',lv:[0,0],bg:'#14281c',gr:'#1d3a2a',en:null}, // 仮置き(画像・中身はこれから)
  {n:'ラグナ火山',e:'RAGNA',lv:[28,50],bg:'#2e1a16',gr:'#44261f',en:[['imp',4],['lizard',3],['magma',2]]}
 ];
 // フィールドの出口: r=Eキーで移動できる範囲 / to=行き先 / p=行き先で立つ位置 / b=出口の目印(帯)の位置
@@ -67,8 +68,10 @@ FD[1].img='RPG/sougen.png';
 FD[1].ex=[{r:[320,0,480,45],to:0,p:[400,70],b:[320,0,160,8]},{r:[W-50,240,W,400],to:4,p:[70,240],b:[W-10,240,10,160]},{r:[200,H-45,520,H],to:2,p:[70,240],b:[200,H-8,320,8]}];
 FD[2].ex=[{...exL(1),p:[360,345]},exR(3)];
 FD[3].ex=[exL(2)];
-FD[4].ex=[{...exL(1),p:[W-70,320]},exR(5)];
-FD[5].ex=[exL(4)];
+FD[4].img='RPG/mori1.png'; // ハルシアの森の画像。左右の開口部(y160〜320)に出口を合わせる。右はユグドラへ
+FD[4].ex=[{r:[0,160,50,320],to:1,p:[W-70,320],b:[0,160,10,160]},{r:[W-50,160,W,320],to:5,p:[70,240],b:[W-10,160,10,160]}];
+FD[5].ex=[exL(4),exR(6)]; // ユグドラ(仮): 左=森 / 右=ラグナ火山
+FD[6].ex=[exL(5)];
 for(const f of FD)if(f.img){const im=new Image();im.onload=()=>{f.imOK=1};im.src=f.img;f.im=im}
 // エルフィア草原 左上の謎の道: 1回目に調べると宝箱が現れ、2回目に開けると10G(開けられるのは1回だけ)
 function pathChest(){
@@ -155,7 +158,7 @@ const ring=(x,y,r,c,d=.35)=>R.push({x,y,r,c,t:d,d});
 const addG=n=>{P.gold+=n;fl(P.x,P.y-52,'+'+n+'G','#ffd84a',13)};
 P.hp=maxHp();
 let PJ=[],LS=[],U=null;const clr=()=>{HZ=[];PJ=[];LS=[];U=null};
-function setLv(l){P.lv=Math.max(1,Math.min(50,l));P.exp=0;P.gk=P.lv>=GATE?1:0;P.gm=0;if(P.lv<10)P.job='none';if(pts()<0||P.job=='none')P.sk=[1,1];if(pts()<0)P.ba=1;if(stp()<0)P.st=[0,0,0,0,0];P.hp=maxHp();if(P.lv>=10&&P.job=='none')state='select'}
+function setLv(l){P.lv=Math.max(1,Math.min(50,l));P.exp=0;P.gk=P.lv>=GATE?1:0;P.gm=0;if(P.lv<10)P.job='none';if(pts()<0||P.job=='none')P.sk=[1,1];if(pts()<0)P.ba=1;if(stp()<0)P.st=[0,0,0,0,0];P.hp=maxHp()}
 function gain(n){
  touch=1;P.exp+=n;fl(P.x,P.y-34,'+'+n+' EXP','#8fd3ff',13);
  while(P.lv<50&&P.exp>=need(P.lv)){
@@ -164,8 +167,7 @@ function gain(n){
    if(!P.gm){P.gm=1;say('Lv'+GATE+'の試練! ペルセ洞窟の最深部のボスを倒せ')}
    break;
   }
-  P.exp-=need(P.lv);P.lv++;P.hp=maxHp();ring(P.x,P.y,140,'#ffe27a',.7);say('レベルアップ! Lv'+P.lv);SE('lvup');
-  if(P.lv==10){state='select'}
+  P.exp-=need(P.lv);P.lv++;P.hp=maxHp();ring(P.x,P.y,140,'#ffe27a',.7);if(P.lv!=GATE)say('レベルアップ! Lv'+P.lv);SE('lvup'); // Lv10になった瞬間は字幕なし。転職はゼノアの教会で行う
   if(P.lv==50)say('Lv50到達! 上級職はこれから実装予定')
  }
 }
@@ -624,14 +626,14 @@ function drawMenu(){
  g.textAlign='center';g.fillStyle='#8b94a8';g.font='13px sans-serif';g.fillText((MT==4?'数字キー 1〜5 でタブ切替 ・ ':'←→ か A/D でタブ切替 ・ ')+(MT==0?'↑↓ で選ぶ ・ E で装備/はずす ・ ':'')+'Tab か Esc で閉じる',W/2,H-16);
 }
 let chm='',DBH=null,UID=null,touch=0,LOCALT=0,saving=0;
-const snap=()=>({v:1,t:Date.now(),lv:P.lv,exp:P.exp,job:P.job,sk:P.sk,ba:P.ba,st:P.st,inv:P.inv,eq:{w:P.eq.w?P.eq.w.id:null,a:P.eq.a?P.eq.a.id:null,s:P.eq.s?P.eq.s.id:null},cr:P.cr,gk:P.gk,gold:P.gold,it:P.it,ch:P.ch,b2:P.b2});
+const snap=()=>({v:1,t:Date.now(),lv:P.lv,exp:P.exp,job:P.job,sk:P.sk,ba:P.ba,st:P.st,inv:P.inv,eq:{w:P.eq.w?P.eq.w.id:null,a:P.eq.a?P.eq.a.id:null,s:P.eq.s?P.eq.s.id:null},cr:P.cr,gk:P.gk,gold:P.gold,it:P.it,ch:P.ch,b2:P.b2,nm:P.name,tr:P.tour});
 function applySave(d){
  if(!d||!Number.isFinite(d.lv))return false;
  P.lv=Math.max(1,Math.min(50,d.lv));P.exp=d.exp||0;P.job=JOBS[d.job]?d.job:'none';P.sk=[0,1].map(i=>(d.sk&&d.sk[i])||1);P.ba=d.ba||1;
  P.st=[0,1,2,3,4].map(i=>(d.st&&d.st[i])||0);
- P.inv=d.inv||{};P.cr=d.cr||{};P.gk=d.gk?1:0;P.gold=d.gold||0;P.it=d.it||{};P.ch=d.ch||{};P.b2=d.b2?1:0;
+ P.inv=d.inv||{};P.cr=d.cr||{};P.gk=d.gk?1:0;P.gold=d.gold||0;P.it=d.it||{};P.ch=d.ch||{};P.b2=d.b2?1:0;if(d.nm)P.name=d.nm;if(d.tr!==undefined)P.tour=d.tr;
  const e=d.eq||{};P.eq={w:RC.find(r=>r.id==e.w)||null,a:RC.find(r=>r.id==e.a)||null,s:RC.find(r=>r.id==e.s)||null};
- P.hp=maxHp();P.mp=maxMp();goField(0,-1);state=(P.lv>=10&&P.job=='none')?'select':'play';return true;
+ P.hp=maxHp();P.mp=maxMp();goField(0,-1);state='play';return true;
 }
 let NET=null; // Firebase連携(下のmodule側で設定)
 function beginGame(d){
