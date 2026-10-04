@@ -59,19 +59,43 @@ const FD=[
  {n:'ペルセ洞窟',e:'PERSE',lv:[6,14],bg:'#1f1e2b',gr:'#2b2a3d',en:[['bat',4],['golem',2],['spider',3]]},
  {n:'ペルセ洞窟 最深部',e:'PERSE',lv:[0,0],bg:'#120f1a',gr:'#221d30',boss:1,en:null},
  {n:'ハルシアの森',e:'HALSIA',lv:[14,28],bg:'#14281c',gr:'#1d3a2a',en:[['wolf',4],['spore',3],['bee',3]]},
- {n:'ユグドラ',e:'YGGDRA',lv:[0,0],bg:'#14281c',gr:'#1d3a2a',en:null}, // 仮置き(画像・中身はこれから)
- {n:'ラグナ火山',e:'RAGNA',lv:[28,50],bg:'#2e1a16',gr:'#44261f',en:[['imp',4],['lizard',3],['magma',2]]}
+ {n:'ユグドラ 北西',e:'YGGDRA',lv:[0,0],bg:'#14281c',gr:'#1d3a2a',en:null}, // ygg1.png(5)。ユグドラは4画面: 北西=5 / 北東=7 / 南西=8 / 南東=9
+ {n:'ラグナ火山',e:'RAGNA',lv:[28,50],bg:'#2e1a16',gr:'#44261f',en:[['imp',4],['lizard',3],['magma',2]]},
+ {n:'ユグドラ 北東',e:'YGGDRA',lv:[0,0],bg:'#14281c',gr:'#1d3a2a',en:null}, // ygg2.png(7)
+ {n:'ユグドラ 南西',e:'YGGDRA',lv:[0,0],bg:'#14281c',gr:'#1d3a2a',en:null}, // ygg3.png(8)
+ {n:'ユグドラ 南東',e:'YGGDRA',lv:[0,0],bg:'#14281c',gr:'#1d3a2a',en:null}, // ygg4.png(9)
+ {n:'アラディア砂漠',e:'ARADIA',lv:[0,0],bg:'#3a3020',gr:'#4a3f2a',en:null} // 仮置き(画像・中身はこれから)(10)
 ];
-// フィールドの出口: r=Eキーで移動できる範囲 / to=行き先 / p=行き先で立つ位置 / b=出口の目印(帯)の位置
+// フィールドの出口: r=Eキーで移動できる範囲 / to=行き先 / p=行き先で立つ位置 / b=出口の目印(帯)の位置 / fw=1か0で「先へ進む(黄)/戻る(水色)」の色を指定(省略すると番号の大小で決まる)
 const exL=to=>({r:[0,170,50,310],to,p:[W-70,240],b:[0,170,10,140]}),exR=to=>({r:[W-50,170,W,310],to,p:[70,240],b:[W-10,170,10,140]});
+// 道(y200〜280)の左右の出口 / 上下の出口(x1〜x2が出口の幅。p=行き先で立つ位置)
+const rdL=to=>({r:[0,200,50,280],to,p:[W-70,240],b:[0,200,10,80]}),rdR=to=>({r:[W-50,200,W,280],to,p:[70,240],b:[W-10,200,10,80]});
+const exUp=(to,p,x1=361,x2=439)=>({r:[x1,0,x2,45],to,p,b:[x1,0,x2-x1,8]}),exDn=(to,p,x1=361,x2=439)=>({r:[x1,H-45,x2,H],to,p,b:[x1,H-8,x2-x1,8]});
 FD[1].img='RPG/sougen.png';
 FD[1].ex=[{r:[320,0,480,45],to:0,p:[400,70],b:[320,0,160,8]},{r:[W-50,240,W,400],to:4,p:[70,240],b:[W-10,240,10,160]},{r:[200,H-45,520,H],to:2,p:[70,240],b:[200,H-8,320,8]}];
 FD[2].ex=[{...exL(1),p:[360,345]},exR(3)];
 FD[3].ex=[exL(2)];
-FD[4].img='RPG/mori1.png'; // ハルシアの森の画像。左右の開口部(y160〜320)に出口を合わせる。右はユグドラへ
+FD[4].img='RPG/mori1.png'; // ハルシアの森の画像。左右の開口部(y160〜320)に出口を合わせる。右はユグドラ(北西)へ
 FD[4].ex=[{r:[0,160,50,320],to:1,p:[W-70,320],b:[0,160,10,160]},{r:[W-50,160,W,320],to:5,p:[70,240],b:[W-10,160,10,160]}];
-FD[5].ex=[exL(4),exR(6)]; // ユグドラ(仮): 左=森 / 右=ラグナ火山
-FD[6].ex=[exL(5)];
+// ユグドラ(4画面。画像は1440x864): 北西=ygg1(家が並ぶ) / 北東=ygg2(道具屋・鍛冶屋) / 南西=ygg3(教会) / 南東=ygg4
+// 北西(5)=左は森 / 右は北東 / 下は南西 ・ 北東(7)=左は北西 / 下は南東 ・ 南西(8)=上は北西 / 右は南東 / 下(南)はラグナ火山 ・ 南東(9)=上は北東 / 左は南西 / 右(東)はアラディア砂漠
+FD[5].img='RPG/ygg1.png';FD[7].img='RPG/ygg2.png';FD[8].img='RPG/ygg3.png';FD[9].img='RPG/ygg4.png';
+FD[5].ex=[rdL(4),rdR(7),exDn(8,[400,70])];
+FD[7].ex=[rdL(5),exDn(9,[430,70],330,470)];
+FD[8].ex=[exUp(5,[400,H-80]),rdR(9),{...exDn(6,[400,70],322,478),fw:1}];
+FD[9].ex=[exUp(7,[400,H-80],330,470),rdL(8),{r:[W-50,161,W,317],to:10,p:[70,240],b:[W-10,161,10,156]}];
+FD[6].ex=[{...exUp(8,[400,H-80],322,478),fw:0}]; // ラグナ火山: 上の出口からユグドラ(南西)へ戻る
+FD[10].ex=[exL(9)]; // アラディア砂漠(仮): 左の出口からユグドラ(南東)へ戻る
+// ユグドラの当たり判定: 画像のピクセル座標[x1,y1,x2,y2]で「入れない四角」を並べる(画像を見て決めた値)
+const YS=W/1440,yOK=blk=>(x,y)=>{const r=10;for(const b of blk)if(x>b[0]*YS-r&&x<b[2]*YS+r&&y>b[1]*YS-r&&y<b[3]*YS+r)return 0;return 1};
+// 北西: 家の並びは道(y360〜503)から見て柵の向こう。家の扉へ続く小道(4本)・赤い家への小道・南へ続く道だけ通れる
+FD[5].ok=yOK([[0,0,180,360],[250,0,468,360],[540,0,755,360],[830,0,1045,360],[1115,0,1440,360],[180,0,250,288],[468,0,540,288],[755,0,830,288],[1045,0,1115,288],[0,503,180,864],[250,503,650,864],[792,503,1440,864],[180,630,250,864]]);
+// 北東: 上の壁・右の壁・道具屋・鍛冶屋・テーブル6つ・左下の森
+FD[7].ok=yOK([[0,0,1440,75],[1368,0,1440,864],[285,70,652,362],[1000,70,1372,362],[665,155,775,275],[880,155,990,275],[808,515,920,637],[1240,515,1352,637],[808,730,920,852],[1240,730,1352,852],[0,720,144,864]]);
+// 南西: 左の壁・下の壁(南への出口の隙間 x580〜860 をあけてある)・教会の壁と家具・右上の森
+FD[8].ok=yOK([[0,0,75,864],[0,790,580,864],[860,790,1440,864],[66,208,440,222],[66,208,80,656],[66,640,440,654],[425,208,440,333],[425,505,440,654],[85,218,202,358],[85,505,202,645],[215,222,360,285],[1296,0,1440,144]]);
+// 南東: 右の壁(東への出口の隙間 y290〜570 をあけてある)・下の壁・左上の森
+FD[9].ok=yOK([[1365,0,1440,290],[1365,570,1440,790],[0,790,1440,864],[0,0,144,144]]);
 for(const f of FD)if(f.img){const im=new Image();im.onload=()=>{f.imOK=1};im.src=f.img;f.im=im}
 // エルフィア草原 左上の謎の道: 1回目に調べると宝箱が現れ、2回目に開けると10G(開けられるのは1回だけ)
 function pathChest(){
@@ -340,7 +364,8 @@ function update(dt){
  let dx=(K.KeyD||K.ArrowRight?1:0)-(K.KeyA||K.ArrowLeft?1:0),dy=(K.KeyS||K.ArrowDown?1:0)-(K.KeyW||K.ArrowUp?1:0);
  if(dx&&dy){dx*=.707;dy*=.707}if(dx)P.face=dx>0?1:-1;
  P.x=Math.max(14,Math.min(W-14,P.x+dx*(170+P.st[4]*.8)*dt));P.y=Math.max(14,Math.min(H-14,P.y+dy*(170+P.st[4]*.8)*dt));
- if(FD[FI].town&&okT(px,py)){const nx=P.x,ny=P.y;P.x=nx;P.y=py;if(!okT(P.x,P.y))P.x=px;P.y=ny;if(!okT(P.x,P.y))P.y=py}
+ const ok=FD[FI].town?okT:FD[FI].ok; // 町は okT / ユグドラは FD[].ok(入れない場所に入ろうとしたら、ぶつかった向きだけ止める)
+ if(ok&&ok(px,py)){const nx=P.x,ny=P.y;P.x=nx;P.y=py;if(!ok(P.x,P.y))P.x=px;P.y=ny;if(!ok(P.x,P.y))P.y=py}
  P.cd=P.cd.map(c=>Math.max(0,c-dt));P.pcd=Math.max(0,P.pcd-dt);P.hit=Math.max(0,P.hit-dt);P.mp=Math.min(maxMp(),P.mp+(3+maxMp()*.03)*dt);
  if(K.Space||K.KeyJ)use(0);if(K.KeyK)use(1);if(K.KeyL)use(2);
  if(!B&&FD[FI].boss&&!P.gk)startBoss();
@@ -417,7 +442,7 @@ function drawGate(){
  const f=FD[FI];g.save();g.textAlign='right';g.font='12px sans-serif';g.fillStyle='#8b94a8';
  if(!B){const a=.5+.2*Math.sin(Date.now()/400);
   if(f.town){g.globalAlpha=a;g.fillStyle='#ffe27a';g.fillRect(CR.x,EXY,CR.w,4);g.globalAlpha=1;g.textAlign='center';g.fillText(FD[1].n+' ↓',CR.x+CR.w/2,EXY-6)}
-  else for(const e of f.ex||[]){const b=e.b,fw=e.to>FI,c=fw?'#ffe27a':'#7ad9ff',nm=FD[e.to].n,lv=FD[e.to].en?'敵 Lv'+FD[e.to].lv[0]+'〜':'ボス部屋';g.globalAlpha=a;g.fillStyle=c;g.fillRect(b[0],b[1],b[2],b[3]);g.globalAlpha=1;g.fillStyle=c;
+  else for(const e of f.ex||[]){const b=e.b,fw=e.fw!==undefined?e.fw:e.to>FI,c=fw?'#ffe27a':'#7ad9ff',nm=FD[e.to].n,lv=FD[e.to].en?'敵 Lv'+FD[e.to].lv[0]+'〜':FD[e.to].boss?'ボス部屋':'';g.globalAlpha=a;g.fillStyle=c;g.fillRect(b[0],b[1],b[2],b[3]);g.globalAlpha=1;g.fillStyle=c;
    if(b[3]<=10&&b[1]<10){g.textAlign='center';g.fillText(nm+' ↑',b[0]+b[2]/2,b[1]+b[3]+14)}
    else if(b[3]<=10){g.textAlign='center';g.fillText(nm+' ↓',b[0]+b[2]/2,b[1]-22);if(fw)g.fillText(lv,b[0]+b[2]/2,b[1]-8)}
    else if(b[0]<10){g.textAlign='left';g.fillText('← '+nm,16,b[1]-8)}
@@ -582,7 +607,8 @@ function drawTown(){
 }
 const gd=()=>{if(B)return 0;const f=FD[FI];if(f.town)return P.y>EXY&&P.x>CR.x&&P.x<CR.x+CR.w?{to:1,p:[400,70]}:0;for(const e of f.ex||[])if(P.x>=e.r[0]&&P.x<=e.r[2]&&P.y>=e.r[1]&&P.y<=e.r[3])return e;return 0}; // 出口の近くなら、その出口を返す
 function act(){for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60)){n.fn();return}const e=gd();if(e){SE('kirikae');goField(e.to,0,e.p[0],e.p[1])}}
-function drawIx(){g.save();g.textAlign='center';g.font='11px sans-serif';g.fillStyle='#ffe27a';for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60))g.fillText(n.hint||'E: 話す',n.x,n.y+28);const e=gd();if(e){const tw=FD[FI].town;let x,y;if(tw){x=CR.x+CR.w/2;y=EXY-22}else{x=Math.max(70,Math.min(W-70,(e.r[0]+e.r[2])/2));y=e.r[1]<10?e.r[3]+20:e.r[3]>H-10?e.r[1]-34:236}g.fillText('E: 移動',x,y);if(!tw)g.fillText(FD[e.to].n,x,y+16)}g.restore()}
+function drawIx(){g.save();g.textAlign='center';for(const n of FD[FI].ix||[])if(n.v){g.fillStyle=n.c;g.strokeStyle='#fff';g.lineWidth=2;g.beginPath();g.arc(n.x,n.y,12,0,7);g.fill();g.stroke();g.fillStyle='#fff';g.font='11px sans-serif';g.fillText(n.n,n.x,n.y-18)} // v:1 = 町の人と同じ丸い人物
+ g.font='11px sans-serif';g.fillStyle='#ffe27a';for(const n of FD[FI].ix||[])if(Math.hypot(P.x-n.x,P.y-n.y)<(n.r||60))g.fillText(n.hint||'E: 話す',n.x,n.y+28);const e=gd();if(e){const tw=FD[FI].town;let x,y;if(tw){x=CR.x+CR.w/2;y=EXY-22}else{x=Math.max(70,Math.min(W-70,(e.r[0]+e.r[2])/2));y=e.r[1]<10?e.r[3]+20:e.r[3]>H-10?e.r[1]-34:236}g.fillText('E: 移動',x,y);if(!tw)g.fillText(FD[e.to].n,x,y+16)}g.restore()}
 let MT=0,MC=0,SEL=0; // SEL: 設定タブで選んでいる項目(0=BGM 1=SE)
 const OWN=()=>['w','a','s'].flatMap(t=>RC.filter(r=>P.cr[r.id]&&r.t==t).sort((a,b)=>a.v-b.v));
 function equipCur(){const r=OWN()[MC];if(r)P.eq[r.t]=P.eq[r.t]==r?null:r}
