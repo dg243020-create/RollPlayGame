@@ -80,6 +80,28 @@ function memScene(cb){
  d.onclick=next;MEM=next;show();
  requestAnimationFrame(()=>requestAnimationFrame(()=>{d.style.opacity=1}));
 }
+// ===== 絵を全画面で見せる(世界樹の絵など)。クリック / E / Enter / Space / Esc で閉じる =====
+// 使い方: viewImage('RPG/ygg6.png')  /  閉じたあとに何かしたいときは viewImage('RPG/ygg5.png',()=>{ ... })
+let VIEW=null;
+addEventListener('keydown',e=>{ // 絵を見ている間は、ゲーム側のキー処理に渡さない
+ if(!VIEW)return;
+ e.stopImmediatePropagation();e.preventDefault();
+ if(!e.repeat&&['KeyE','Enter','Space','Escape'].includes(e.code))VIEW();
+},true);
+function viewImage(src,cb){
+ const d=document.createElement('div');
+ d.style.cssText='position:fixed;inset:0;z-index:35;background:#000;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .6s';
+ const im=new Image();im.style.cssText='max-width:100vw;max-height:100vh;object-fit:contain';
+ im.onerror=()=>{im.remove();d.style.color='#e8ecf5';d.textContent='(画像が見つかりません: '+src+')'}; // 画像が読めないときの代わり
+ im.src=src;d.appendChild(im);
+ const hn=document.createElement('div');hn.textContent='E / クリックで閉じる';
+ hn.style.cssText='position:absolute;right:18px;bottom:12px;font-size:13px;color:#fff;opacity:.55;text-shadow:0 0 4px #000';d.appendChild(hn);
+ document.body.appendChild(d);
+ const prev=state;state='view';SE('open');let done=0;
+ const close=()=>{if(done)return;done=1;VIEW=null;d.style.transition='opacity .4s';d.style.opacity=0;setTimeout(()=>{d.remove();state=prev;if(cb)cb()},400)};
+ d.onclick=close;VIEW=close;
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{d.style.opacity=1}));
+}
 // 水晶竜を倒すと、水晶になっていた町の人が元に戻る
 function uncrystal(){
  const n=NPC[3];n.c='#d8d2c0';n.n='町の人';n.fn=()=>talk('町の人','ありがとう、旅の人! ……長い夢を見ていたみたいだ');
@@ -200,6 +222,7 @@ function tick(){
  if(trail.length>=11){RU.x+=(trail[0].x-RU.x)*.2;RU.y+=(trail[0].y-RU.y)*.2}
 }
 // 現在の目標(画面下、ゴールドの左の枠)。進行度 P.tour から決める。空なら「―」
+// FD の番号: 5=ユグドラ北西 6=ラグナ火山 7=ユグドラ北東 8=ユグドラ南西 9=ユグドラ南東
 function goalText(){
  const k=P.tour;
  if(P.lv>=10&&P.job=='none')return '教会で転職する';
@@ -210,7 +233,7 @@ function goalText(){
  if(k==6)return '教会に行く';
  if(k==7||k==8)return '長老の話を聞く';
  if(k==9)return P.gk?'':'「水晶竜」を探しに行く';
- if(k==10)return FI==6?'炎竜を探す':'ハルシアの森を抜けて、ラグナ火山へ';
+ if(k==10)return FI==6?'炎竜を探す':(FI==5||FI==7||FI==8||FI==9)?'ユグドラの南(左下)から、ラグナ火山へ':'ハルシアの森を抜けて、ラグナ火山へ';
  return '';
 }
 // 画面の状態が変わったことを検知(お店や教会を閉じたときにイベントを起こす)
@@ -260,6 +283,15 @@ FD[2].ex[1]={r:[W-50,130,W,350],to:3,p:[110,240],b:[W-10,130,10,220]};
 FD[1].ex[2].p=[400,60]; // 草原の南の出口 → 洞窟の上から入る
 FD[2].ex[0]={r:[320,0,480,45],to:1,p:[360,345],b:[320,0,160,8]}; // 洞窟から戻る出口も上側に
 FD[3].ex=[]; // 最深部は左から入り、戻れない
+// ユグドラ(4画面): 画像の中心(4画面がぶつかる所)にある森。各画面の「中心に近い角」の濃い森の近くでE → 世界樹の絵(RPG/ygg6.png)
+// ygg5.png(赤い空の世界樹)は物語用。出したい場面で viewImage('RPG/ygg5.png') を呼ぶ。x,y は画面(800x480)の座標
+const treeIx=(x,y)=>({x,y,r:110,hint:'E: 世界樹を見る',fn:()=>viewImage('RPG/ygg6.png')});
+// 人物: 画像(1440x864)のピクセル座標で置く。v:1 で丸い人物として描かれる
+const y9=v=>v*W/1440,yNpc=(x,y,n,c,hint,fn)=>({x:y9(x),y:y9(y),r:70,n,c,v:1,hint,fn});
+FD[5].ix=[treeIx(760,440)];
+FD[7].ix=[yNpc(468,335,'道具屋','#7ad9ff','E: 買い物',()=>NPC[1].fn()),yNpc(1189,335,'鍛冶屋','#e0453f','E: 作る',()=>f2()),treeIx(40,440)];
+FD[8].ix=[yNpc(300,430,'神父','#e8e4f0','E: 祈る',()=>NPC[0].fn()),treeIx(760,40)];
+FD[9].ix=[treeIx(40,40)];
 const sb=startBoss;startBoss=function(){sb();P.x=110;P.y=240;if(FI==3&&!P.ch.k0){P.ch.k0=1;scene(S_MEET,()=>playBGM('boss1'))}}; // ボス戦開始時も左側から / 初対面の会話が終わったら boss1 を流す
 const gf=goField;goField=function(i,s,x,y){gf(i,s,x,y);if(bgm&&MAPBGM[i]){if(i==3&&!P.ch.k0){bgm.pause();bgmName=''}else playBGM(MAPBGM[i])}if(i==2&&x===undefined){P.x=690;P.y=240}}; // 敗北して洞窟に戻るときは黒い部分の内側へ
 // クリスタルドレイク(ボス1)を倒したら、職業選択のあと(play に戻ってから)終幕の会話を始める
