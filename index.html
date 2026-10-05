@@ -378,8 +378,8 @@ function boss2(dt){
 }
 // ===== ボス3: 「地竜」アースドレイク(Lv35) =====
 // 調整用の数字: GR=重力(px/秒。プレイヤーを常に下へ引く。移動速度は170なので、上キーを押し続ければ差し引き60で上がれる)
-//   B3HP=HPの倍率(炎竜は24) / B3CL=分身1体のHP(ボス最大HPに対する割合) / B3RT=最後の分身を倒す制限時間(秒)
-const GR=110,B3HP=28,B3CL=.08,B3RT=25;
+//   B3HP=HPの倍率(炎竜は24) / B3CL=分身1体のHP(ボス最大HPに対する割合。.25=25%) / B3RT=最後の分身を倒す制限時間(秒)
+const GR=110,B3HP=28,B3CL=.25,B3RT=25;
 // ボスの状態 B.md: 0=待機 1=地ならし 2=突進の予兆 3=突進中 4=突進のあとの隙 5=分身+竜巻(無敵) 6=最後の分身戦(無敵・時間制限)
 // B.rv: 0=まだ / 1=最後の分身戦 / 2=復活済み
 function startBoss3(){
@@ -395,7 +395,7 @@ function b3Clones(n){
   ring(x,H-50,60,'#c9a24a',.5)}
  SE('shutugen');
 }
-function b3Tn(){const l=Math.random()<.5;TN.push({x:l?-40:W+40,y:140+Math.random()*230,vx:(l?1:-1)*(60+Math.random()*40),r:36,life:10})}
+function b3Tn(){const l=Math.random()<.5;TN.push({x:l?-40:W+40,y:140+Math.random()*230,vx:(l?1:-1)*(150+Math.random()*80),r:60,life:10})}
 // HPが半分を切ったとき: 分身2体+竜巻。分身を全部倒すまでボスは無敵
 function b3Ult(){B.ph=2;B.md=5;B.inv=999;B.tt=1.5;WV=[];b3Clones(2);say('分身を倒せ! ボスは無敵だ')}
 // HPが0になったとき(1回だけ): 死なずにHP1で無敵になり、分身2体を再召喚。制限時間内に倒しきれなければ HP50% で復活
@@ -412,11 +412,11 @@ function boss3(dt){
  for(const t of TN){
   t.x+=t.vx*dt;t.life-=dt;
   const dx=t.x-P.x,dy=t.y-P.y,d=Math.hypot(dx,dy)||1;
-  if(d<170){const k=(1-d/170)*140*dt;P.x=Math.max(14,Math.min(W-14,P.x+dx/d*k));P.y=Math.max(14,Math.min(H-14,P.y+dy/d*k))}
+  if(d<250){const k=(1-d/250)*150*dt;P.x=Math.max(14,Math.min(W-14,P.x+dx/d*k));P.y=Math.max(14,Math.min(H-14,P.y+dy/d*k))}
   if(d<t.r+12)pdmg(Math.round(dm*.8),.5);
  }
  TN=TN.filter(t=>t.life>0&&t.x>-80&&t.x<W+80);
- B.y=H-62;
+ if(B.md!=2&&B.md!=3)B.y=Math.min(H-62,B.y+500*dt); // 突進以外のときは床へ落ちる
  // 分身戦(5: HP半分での分身+竜巻 / 6: HP0のあとの最後の分身戦)
  if(B.md==5||B.md==6){
   B.x+=(400-B.x)*Math.min(1,2*dt);
@@ -444,13 +444,13 @@ function boss3(dt){
   if(B.n3>=nw&&B.mt>.9+nw*.55+.3){B.md=0;B.cdT=1.6}
  }
  else if(B.md==2){ // 突進の予兆: プレイヤーのいる側を向く
-  B.mt+=dt;B.dir=P.x>B.x?1:-1;
+  B.mt+=dt;if(B.mt<.65||B.ang===undefined)B.ang=Math.atan2(P.y-B.y,P.x-B.x); // 最後の0.25秒は向きを固定
   if(B.mt>=.9){B.md=3;B.mt=0;B.ch=0}
  }
- else if(B.md==3){ // 突進: 壁にぶつかるまで走る
-  B.mt+=dt;B.x+=B.dir*(B.ph>=2?720:620)*dt;
+ else if(B.md==3){ // 突進: プレイヤーのいた位置へ向かって、宙に浮いていても壁・天井・床にぶつかるまで走る
+  const v=B.ph>=2?720:620;B.mt+=dt;B.x+=Math.cos(B.ang)*v*dt;B.y+=Math.sin(B.ang)*v*dt;
   if(!B.ch&&Math.hypot(P.x-B.x,P.y-B.y)<B.rad+14){B.ch=1;pdmg(Math.round(dm*1.5),.8)}
-  if(B.x<50||B.x>W-50){B.x=Math.max(50,Math.min(W-50,B.x));B.md=4;B.mt=0;ring(B.x,H-30,130,'#c9a24a',.5);SE('bakuhatu')}
+  if(B.x<50||B.x>W-50||B.y<60||B.y>H-62){B.x=Math.max(50,Math.min(W-50,B.x));B.y=Math.max(60,Math.min(H-62,B.y));B.md=4;B.mt=0;ring(B.x,B.y,130,'#c9a24a',.5);SE('bakuhatu')}
  }
  else if(B.md==4){B.mt+=dt;if(B.mt>1.3){B.md=0;B.cdT=1.4}} // 突進のあとの隙(攻めどき)
 }
@@ -815,13 +815,13 @@ function drawB3(){
  g.globalAlpha=.12;g.fillStyle='#e8d9b8';for(let i=0;i<8;i++){const x=(i*110+Date.now()/25)%W;g.fillRect(x,40+i*45%330,26,2)} // 下へ流れる風のすじ(重力の目印)
  g.globalAlpha=1;
  if(B.md==1){g.globalAlpha=.2+.15*Math.sin(Date.now()/60);g.fillStyle='#ff4d4d';g.fillRect(0,H-84,W,70);g.globalAlpha=1}
- if(B.md==2){g.globalAlpha=.2+.1*Math.sin(Date.now()/60);g.fillStyle='#ff4d4d';g.fillRect(B.dir>0?B.x:0,B.y-B.rad,B.dir>0?W-B.x:B.x,B.rad*2);g.globalAlpha=1}
+ if(B.md==2){g.save();g.translate(B.x,B.y);g.rotate(B.ang||0);g.globalAlpha=.2+.1*Math.sin(Date.now()/60);g.fillStyle='#ff4d4d';g.fillRect(0,-B.rad,1000,B.rad*2);g.restore();g.globalAlpha=1}
  for(const w of WV){g.globalAlpha=.85;g.fillStyle='#c9a24a';g.beginPath();g.moveTo(w.x-w.w,H-14);g.lineTo(w.x,H-84);g.lineTo(w.x+w.w,H-14);g.closePath();g.fill();g.strokeStyle='#fff';g.lineWidth=2;g.stroke()}
  g.globalAlpha=1;
  for(const t of TN){
   g.globalAlpha=.18;g.fillStyle='#d8e8d0';g.beginPath();g.arc(t.x,t.y,t.r,0,7);g.fill();
   g.globalAlpha=.8;g.strokeStyle='#e8f0e0';g.lineWidth=2;
-  for(let k=0;k<6;k++){g.beginPath();g.ellipse(t.x+Math.sin(Date.now()/120+k)*6,t.y-36+k*13,10+k*5,5,0,0,7);g.stroke()}
+  for(let k=0;k<6;k++){g.beginPath();g.ellipse(t.x+Math.sin(Date.now()/120+k)*8,t.y-t.r+k*t.r/2.8,(10+k*5)*t.r/36,7,0,0,7);g.stroke()}
  }
  g.globalAlpha=1;
  if(B.md==6){g.textAlign='center';g.font='bold 18px sans-serif';g.fillStyle='#ff8a80';g.fillText('蘇るまで '+Math.max(0,B.rt).toFixed(1)+' 秒  (分身 残り '+E.reduce((a,e)=>a+(e.cl?1:0),0)+')',W/2,140)}
