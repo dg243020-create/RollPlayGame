@@ -70,7 +70,8 @@ const FD=[
  {n:'アラディア砂漠',e:'ARADIA',lv:[22,27],bg:'#3a3020',gr:'#4a3f2a',en:null}, // 仮置き(画像・中身はこれから)(10)
  {n:'ラグナ火山 中層',e:'RAGNA',lv:[12,19],bg:'#2e1a16',gr:'#44261f',en:[['imp',4],['lizard',3],['magma',2]]}, // 仮置き(11)
  {n:'ラグナ火山 上層',e:'RAGNA',lv:[18,24],bg:'#2e1a16',gr:'#44261f',en:[['imp',4],['lizard',3],['magma',2]]}, // 仮置き(12)
- {n:'ラグナ火山 最深部',e:'RAGNA',lv:[0,0],bg:'#2e1a16',gr:'#44261f',boss:2,en:null} // ボス部屋(13): 「炎竜」ファイアードレイク Lv25(boss:1=クリスタルドレイク / boss:2=ファイアードレイク)
+ {n:'ラグナ火山 最深部',e:'RAGNA',lv:[0,0],bg:'#2e1a16',gr:'#44261f',boss:2,en:null}, // ボス部屋(13): 「炎竜」ファイアードレイク Lv25(boss:1=クリスタルドレイク / boss:2=ファイアードレイク)
+ {n:'アラディア砂漠 最深部',e:'ARADIA',lv:[0,0],bg:'#3a2c1a',gr:'#4a3a24',boss:3,en:null,bk:10} // ボス部屋(14): 「地竜」アースドレイク Lv35(boss:3)。bk=負けたときに戻る先
 ];
 // フィールドの出口: r=Eキーで移動できる範囲 / to=行き先 / p=行き先で立つ位置 / b=出口の目印(帯)の位置 / fw=1か0で「先へ進む(黄)/戻る(水色)」の色を指定(省略すると番号の大小で決まる)
 const exL=to=>({r:[0,170,50,310],to,p:[W-70,240],b:[0,170,10,140]}),exR=to=>({r:[W-50,170,W,310],to,p:[70,240],b:[W-10,170,10,140]});
@@ -94,7 +95,8 @@ FD[6].ex=[{...exUp(8,[400,H-80],322,478),fw:0},exR(11)]; // ラグナ火山 下�
 FD[11].ex=[exL(6),exR(12)]; // 中層: 左=下層 / 右=上層
 FD[12].ex=[exL(11),exR(13)]; // 上層: 左=中層 / 右=ボス部屋
 FD[13].ex=[exL(12)]; // ボス部屋: 左=上層(ボスがいる間は出られない)
-FD[10].ex=[exL(9)]; // アラディア砂漠(仮): 左の出口からユグドラ(南東)へ戻る
+FD[10].ex=[exL(9),exR(14)]; // アラディア砂漠(仮): 左の出口からユグドラ(南東)へ戻る / 右はボス部屋(アースドレイク)へ
+FD[14].ex=[exL(10)]; // アースドレイクの部屋: 左=砂漠(ボスがいる間は出られない)
 // ユグドラの当たり判定: 画像のピクセル座標[x1,y1,x2,y2]で「入れない四角」を並べる(画像を見て決めた値)
 const YS=W/1440,yOK=blk=>(x,y)=>{const r=10;for(const b of blk)if(x>b[0]*YS-r&&x<b[2]*YS+r&&y>b[1]*YS-r&&y<b[3]*YS+r)return 0;return 1};
 // 北西: 上の壁・左の壁(道の隙間をあけてある)・家5軒・右下の森。画像の白線は柵ではないので、判定には使っていない
@@ -148,9 +150,9 @@ const POT=[
  {id:'hpot',n:'ハイHPポーション',k:'hp',r:.2,p:25,d:'HPを20%回復',u:1},
  {id:'hmp',n:'ハイMPポーション',k:'mp',r:.2,p:25,d:'MPを20%回復',u:1}];
 const PL=()=>POT.filter(t=>!t.u||P.b2); // 今、道具屋で買えるもの
-const bdone=()=>FD[FI].boss==2?P.b2:P.gk; // このボス部屋のボスを倒したか(boss:2 は炎竜、それ以外はクリスタルドレイク)
+const bdone=()=>FD[FI].boss==3?P.b3:FD[FI].boss==2?P.b2:P.gk; // このボス部屋のボスを倒したか(boss:3 は地竜、boss:2 は炎竜、それ以外はクリスタルドレイク)
 let FI=0;cv.style.background=FD[0].bg;
-const K={};let P={x:400,y:240,lv:1,exp:0,job:'none',hp:16,cd:[0,0,0],sk:[1,1],ba:1,st:[0,0,0,0,0],mp:999,face:1,hit:0,gk:0,gm:0,inv:{},eq:{w:null,a:null,s:null},cr:{},gold:0,it:{},pcd:0,ch:{},b2:0},E=[],HZ=[],B=null,F=[],R=[],state='play',msg={t:0,s:''};
+const K={};let P={x:400,y:240,lv:1,exp:0,job:'none',hp:16,cd:[0,0,0],sk:[1,1],ba:1,st:[0,0,0,0,0],mp:999,face:1,hit:0,gk:0,gm:0,inv:{},eq:{w:null,a:null,s:null},cr:{},gold:0,it:{},pcd:0,ch:{},b2:0,b3:0},E=[],HZ=[],B=null,F=[],R=[],state='play',msg={t:0,s:''};
 const XPN=2.5; // 必要経験値の倍率(大きいほどレベルが上がりにくい。1だと以前と同じ)
 const J=()=>JOBS[P.job],need=l=>Math.round((10+l*l*3)*XPN),maxHp=()=>J().hp+P.lv*4+P.st[0]*3,maxMp=()=>20+P.lv*2+P.st[1]*2,aInt=()=>{const a=J().a;return Math.max(a[2],a[0]-a[1]*P.lv)*(1-.02*(P.ba-1))},aMul=()=>{const a=J().a;return (a[3]+a[4]*P.lv)*(1+.08*(P.ba-1))};
 const stp=()=>(P.lv-1)*3-P.st.reduce((a,b)=>a+b,0),pts=()=>P.lv-1-(P.ba-1)-(P.sk[0]-1)-(P.sk[1]-1),sm=(s,i)=>(s.m||0)*(1+.12*(P.sk[i]-1)),scd=(s,i)=>s.cd*(1-.03*(P.sk[i]-1)),sh=(s,i)=>(s.heal||0)*(1+.05*(P.sk[i]-1))*(1+.02*P.st[3]);
@@ -197,7 +199,7 @@ const fl=(x,y,tx,c,sz)=>F.push({x,y,tx,c,sz,t:1});
 const ring=(x,y,r,c,d=.35)=>R.push({x,y,r,c,t:d,d});
 const addG=n=>{P.gold+=n;fl(P.x,P.y-52,'+'+n+'G','#ffd84a',13)};
 P.hp=maxHp();
-let PJ=[],LS=[],U=null,AR=[];const clr=()=>{HZ=[];PJ=[];LS=[];U=null;AR=[]}; // AR=雑魚(エルフ)の矢
+let PJ=[],LS=[],U=null,AR=[],TN=[],WV=[];const clr=()=>{HZ=[];PJ=[];LS=[];U=null;AR=[];TN=[];WV=[]}; // AR=雑魚(エルフ)の矢 / TN=竜巻(アースドレイク) / WV=地ならしの衝撃波(アースドレイク)
 function setLv(l){P.lv=Math.max(1,Math.min(50,l));P.exp=0;P.gk=P.lv>=GATE?1:0;P.gm=0;if(P.lv<10)P.job='none';if(pts()<0||P.job=='none')P.sk=[1,1];if(pts()<0)P.ba=1;if(stp()<0)P.st=[0,0,0,0,0];P.hp=maxHp()}
 function gain(n){
  touch=1;P.exp+=n;fl(P.x,P.y-34,'+'+n+' EXP','#8fd3ff',13);
@@ -277,6 +279,7 @@ addEventListener('keydown',e=>{
  const pi={Digit1:0,Digit2:1,Digit3:2,Digit4:3}[e.code];if(pi!==undefined){usePot(pi);return}
  if(e.code=='KeyB'){if(B){E=[];B=null;clr();say('撤退した')}else startBoss();return}
  if(e.code=='KeyV'){if(B){E=[];B=null;clr();say('撤退した')}else startBoss2();return}
+ if(e.code=='KeyN'){if(B){E=[];B=null;clr();say('撤退した')}else startBoss3();return} // 確認用: アースドレイクを呼ぶ
  if(e.code=='Tab'){state='menu';MC=0;SE('open');return}
  if(e.code=='KeyE'){act();return}
  if(e.code=='KeyF'&&!B){goField((FI+1)%FD.length,-1);return}
@@ -286,12 +289,13 @@ addEventListener('keydown',e=>{
  else if(e.key=='5')setLv(50);
 });
 addEventListener('keyup',e=>K[e.code]=0);
-function nearest(m){let b=null,bd=m;for(const e of E){const d=Math.hypot(e.x-P.x,e.y-P.y)-(e.rad||0);if(d<bd){bd=d;b=e}}return b}
+function nearest(m){let b=null,bd=m;for(const e of E){if(e.k3&&e.inv>0)continue;const d=Math.hypot(e.x-P.x,e.y-P.y)-(e.rad||0);if(d<bd){bd=d;b=e}}return b} // 無敵中のアースドレイクは狙わない(分身を優先)
 function hurt(e,m){
  if(e.inv>0){const t=performance.now();if(t-(e.ft||0)>400){e.ft=t;fl(e.x,e.y-14,'無敵','#ffe27a',15)}return}
  const cr=Math.random()<.15,d=Math.round((useMag()?magV():atkV())*m*(.9+Math.random()*.2)*(cr?2:1));
  e.hp-=d;e.fl=.1;fl(e.x,e.y-14,d+(cr?'!':''),cr?'#ffd84a':'#fff',cr?24:15);
- if(e.hp<=0){E.splice(E.indexOf(e),1);if(e.boss){B=null;clr();const f1=!e.k2&&!P.ch.k1,xp=Math.round(need(P.lv)*(e.k2?1.2:.8)),gg=e.k2?400:250;if(!f1)say('ボス撃破!');if(e.k2&&!P.b2){P.b2=1;say('「炎竜」ファイアードレイク撃破! 道具屋にハイポーションが並ぶ')}if(!e.k2&&P.lv==GATE-1&&!P.gk){P.gk=1;if(!f1)say('試練達成!')}if(f1)RW={xp,g:gg};else{gain(xp);addG(gg)}}else{gain(Math.round((4+e.lv*2)*(e.xp||1)));addG(Math.round((2+e.lv*1.2)*(e.xp||1)));drop(e)}}
+ if(e.hp<=0&&e.k3&&!e.rv){b3Last(e);return} // アースドレイクは1回目のHP0では死なず、最後の分身戦に入る
+ if(e.hp<=0){E.splice(E.indexOf(e),1);if(e.boss){if(e.k3){winB3();return}B=null;clr();const f1=!e.k2&&!P.ch.k1,xp=Math.round(need(P.lv)*(e.k2?1.2:.8)),gg=e.k2?400:250;if(!f1)say('ボス撃破!');if(e.k2&&!P.b2){P.b2=1;say('「炎竜」ファイアードレイク撃破! 道具屋にハイポーションが並ぶ')}if(!e.k2&&P.lv==GATE-1&&!P.gk){P.gk=1;if(!f1)say('試練達成!')}if(f1)RW={xp,g:gg};else{gain(xp);addG(gg)}}else if(!e.cl){gain(Math.round((4+e.lv*2)*(e.xp||1)));addG(Math.round((2+e.lv*1.2)*(e.xp||1)));drop(e)}}
 }
 function use(i){
  if(P.cd[i]>0)return;const j=J();
@@ -372,6 +376,84 @@ function boss2(dt){
   }
  }
 }
+// ===== ボス3: 「地竜」アースドレイク(Lv35) =====
+// 調整用の数字: GR=重力(px/秒。プレイヤーを常に下へ引く。移動速度は170なので、上キーを押し続ければ差し引き60で上がれる)
+//   B3HP=HPの倍率(炎竜は24) / B3CL=分身1体のHP(ボス最大HPに対する割合) / B3RT=最後の分身を倒す制限時間(秒)
+const GR=110,B3HP=28,B3CL=.08,B3RT=25;
+// ボスの状態 B.md: 0=待機 1=地ならし 2=突進の予兆 3=突進中 4=突進のあとの隙 5=分身+竜巻(無敵) 6=最後の分身戦(無敵・時間制限)
+// B.rv: 0=まだ / 1=最後の分身戦 / 2=復活済み
+function startBoss3(){
+ const lv=35,h=Math.round((10+lv*6+lv**3*.02)*B3HP);
+ E=[{x:400,y:H-62,lv,hp:h,mh:h,sp:0,dm:Math.round(3+lv*1.2),fl:0,rad:40,boss:1,k3:1,n:'「地竜」アースドレイク',cdT:2,ph:1,tm:0,inv:0,md:0,mt:0,n3:0,dir:1,rv:0,rt:0,tt:3,ch:0}];
+ B=E[0];clr();P.x=400;P.y=300;say('「地竜」アースドレイク 出現!');SE('shutugen');talk('','体が下へ引っ張られる…!上キーで踏ん張れ');
+}
+// 分身を n 体呼ぶ(ボスの最大HPの B3CL 倍のHP)
+function b3Clones(n){
+ const h=Math.round(B.mh*B3CL);
+ for(let i=0;i<n;i++){const x=n==1?400:i?W-110:110;
+  E.push({x,y:H-50,lv:B.lv,hp:h,mh:h,sp:55,dm:Math.round(2+B.lv*.9),fl:0,n:'地竜の分身',c:'#b89b5e',vr:15,rad:16,cl:1});
+  ring(x,H-50,60,'#c9a24a',.5)}
+ SE('shutugen');
+}
+function b3Tn(){const l=Math.random()<.5;TN.push({x:l?-40:W+40,y:140+Math.random()*230,vx:(l?1:-1)*(60+Math.random()*40),r:36,life:10})}
+// HPが半分を切ったとき: 分身2体+竜巻。分身を全部倒すまでボスは無敵
+function b3Ult(){B.ph=2;B.md=5;B.inv=999;B.tt=1.5;WV=[];b3Clones(2);say('分身を倒せ! ボスは無敵だ')}
+// HPが0になったとき(1回だけ): 死なずにHP1で無敵になり、分身2体を再召喚。制限時間内に倒しきれなければ HP50% で復活
+function b3Last(e){e.rv=1;e.hp=1;e.inv=999;e.md=6;e.rt=B3RT;e.tt=1.5;WV=[];TN=[];b3Clones(2);ring(e.x,e.y,160,'#fff',.6);SE('flash');say('分身を倒しきれ! でないと蘇る')}
+function b3Revive(){E=E.filter(e=>!e.cl);B.hp=Math.round(B.mh*.5);B.rv=2;B.inv=0;B.md=0;B.cdT=1.5;B.ph=2;TN=[];WV=[];ring(B.x,B.y,220,'#c9a24a',.8);SE('shutugen');say('地竜が蘇った! HP50%')}
+function winB3(){E=[];B=null;clr();ring(400,300,320,'#c9a24a',.9);SE('flash');P.b3=1;say('「地竜」アースドレイク撃破!');gain(Math.round(need(P.lv)*1.6));addG(700)}
+function boss3(dt){
+ B.tm+=dt;
+ const dm=Math.round(5+B.lv*1.8),f=B.hp/B.mh;
+ // 地ならしの衝撃波: 床の高さ70(y>H-84)にいると当たる。浮いていれば避けられる
+ for(const w of WV){w.x+=w.v*dt;if(P.y>H-84&&Math.abs(P.x-w.x)<w.w+12)pdmg(Math.round(dm*1.1),.6)}
+ WV=WV.filter(w=>w.x>-40&&w.x<W+40);
+ // 竜巻: 近づくと引き寄せられる(引く力は移動速度より弱い)。中心に触れるとダメージ
+ for(const t of TN){
+  t.x+=t.vx*dt;t.life-=dt;
+  const dx=t.x-P.x,dy=t.y-P.y,d=Math.hypot(dx,dy)||1;
+  if(d<170){const k=(1-d/170)*140*dt;P.x=Math.max(14,Math.min(W-14,P.x+dx/d*k));P.y=Math.max(14,Math.min(H-14,P.y+dy/d*k))}
+  if(d<t.r+12)pdmg(Math.round(dm*.8),.5);
+ }
+ TN=TN.filter(t=>t.life>0&&t.x>-80&&t.x<W+80);
+ B.y=H-62;
+ // 分身戦(5: HP半分での分身+竜巻 / 6: HP0のあとの最後の分身戦)
+ if(B.md==5||B.md==6){
+  B.x+=(400-B.x)*Math.min(1,2*dt);
+  B.tt-=dt;if(B.tt<=0&&TN.length<3){b3Tn();B.tt=B.md==6?2.2:3}
+  const n=E.reduce((a,e)=>a+(e.cl?1:0),0);
+  if(B.md==5){if(!n){B.md=0;B.inv=0;B.cdT=1.5;TN=[];say('無敵解除!')}return}
+  B.rt-=dt;
+  if(!n){winB3();return}
+  if(B.rt<=0)b3Revive();
+  return;
+ }
+ // HPが半分を切ったら、攻撃の合間に分身+竜巻
+ if(B.md==0&&B.ph==1&&f<.5){b3Ult();return}
+ // 半分を切ったあとは、普段の攻撃中にも竜巻が1つずつ流れてくる
+ if(B.ph>=2){B.tt-=dt;if(B.tt<=0&&TN.length<1){b3Tn();B.tt=7}}
+ if(B.md==0){ // 待機: プレイヤーのほうへゆっくり歩く
+  B.x+=Math.sign(P.x-B.x)*Math.min(45*dt,Math.abs(P.x-B.x));
+  B.cdT-=dt;
+  if(B.cdT<=0){B.md=Math.random()<.5?1:2;B.mt=0;B.n3=0;B.dir=P.x>B.x?1:-1}
+ }
+ else if(B.md==1){ // 地ならし: 予兆(床が赤く光る)のあと、左右へ衝撃波を何度も飛ばす(波状攻撃)
+  B.mt+=dt;
+  const nw=B.ph>=2?4:3,sp=B.ph>=2?330:280;
+  if(B.n3<nw&&B.mt>=.9+B.n3*.55){B.n3++;WV.push({x:B.x,v:-sp,w:20},{x:B.x,v:sp,w:20});ring(B.x,H-20,90,'#c9a24a',.4);SE('bakuhatu')}
+  if(B.n3>=nw&&B.mt>.9+nw*.55+.3){B.md=0;B.cdT=1.6}
+ }
+ else if(B.md==2){ // 突進の予兆: プレイヤーのいる側を向く
+  B.mt+=dt;B.dir=P.x>B.x?1:-1;
+  if(B.mt>=.9){B.md=3;B.mt=0;B.ch=0}
+ }
+ else if(B.md==3){ // 突進: 壁にぶつかるまで走る
+  B.mt+=dt;B.x+=B.dir*(B.ph>=2?720:620)*dt;
+  if(!B.ch&&Math.hypot(P.x-B.x,P.y-B.y)<B.rad+14){B.ch=1;pdmg(Math.round(dm*1.5),.8)}
+  if(B.x<50||B.x>W-50){B.x=Math.max(50,Math.min(W-50,B.x));B.md=4;B.mt=0;ring(B.x,H-30,130,'#c9a24a',.5);SE('bakuhatu')}
+ }
+ else if(B.md==4){B.mt+=dt;if(B.mt>1.3){B.md=0;B.cdT=1.4}} // 突進のあとの隙(攻めどき)
+}
 function spawn(){
  let x,y;do{x=30+Math.random()*(W-60);y=30+Math.random()*(H-60)}while(Math.hypot(x-P.x,y-P.y)<220);
  const f=FD[FI],t=TY[pick(f.en)],lv=f.lv[0]+Math.floor(Math.random()*(f.lv[1]-f.lv[0]+1)),h=Math.max(1,Math.round((10+lv*6+lv**3*.02)*t.hp));
@@ -381,14 +463,14 @@ function update(dt){
  const px=P.x,py=P.y;
  let dx=(K.KeyD||K.ArrowRight?1:0)-(K.KeyA||K.ArrowLeft?1:0),dy=(K.KeyS||K.ArrowDown?1:0)-(K.KeyW||K.ArrowUp?1:0);
  if(dx&&dy){dx*=.707;dy*=.707}if(dx)P.face=dx>0?1:-1;
- P.x=Math.max(14,Math.min(W-14,P.x+dx*(170+P.st[4]*.8)*dt));P.y=Math.max(14,Math.min(H-14,P.y+dy*(170+P.st[4]*.8)*dt));
+ P.x=Math.max(14,Math.min(W-14,P.x+dx*(170+P.st[4]*.8)*dt));P.y=Math.max(14,Math.min(H-14,P.y+dy*(170+P.st[4]*.8)*dt+(B&&B.k3?GR*dt:0))); // アースドレイク戦は重力: 常に下へ落ちる
  const ok=FD[FI].town?okT:FD[FI].ok; // 町は okT / ユグドラは FD[].ok(入れない場所に入ろうとしたら、ぶつかった向きだけ止める)
  if(ok&&ok(px,py)){const nx=P.x,ny=P.y;P.x=nx;P.y=py;if(!ok(P.x,P.y))P.x=px;P.y=ny;if(!ok(P.x,P.y))P.y=py}
  AUTOT=Math.max(0,AUTOT-dt);
  if(FD[FI].auto&&AUTOT<=0&&!B){const e=gd();if(e){AUTOT=.5;SE('kirikae');goField(e.to,0,e.p[0],e.p[1])}} // 自動で出口へ
  P.cd=P.cd.map(c=>Math.max(0,c-dt));P.pcd=Math.max(0,P.pcd-dt);P.hit=Math.max(0,P.hit-dt);P.mp=Math.min(maxMp(),P.mp+(3+maxMp()*.03)*dt);
  if(K.Space||K.KeyJ)use(0);if(K.KeyK)use(1);if(K.KeyL)use(2);
- if(!B&&FD[FI].boss&&!bdone())(FD[FI].boss==2?startBoss2:startBoss)(); // ボス部屋に入るとボスが出る
+ if(!B&&FD[FI].boss&&!bdone())(FD[FI].boss==3?startBoss3:FD[FI].boss==2?startBoss2:startBoss)(); // ボス部屋に入るとボスが出る
  while(!B&&FD[FI].en&&E.length<6)spawn();
  for(const e of E){
   const d=Math.hypot(P.x-e.x,P.y-e.y)||1;
@@ -408,13 +490,14 @@ function update(dt){
  }
  AR=AR.filter(a=>a.x>-50&&a.x<W+50&&a.y>-50&&a.y<H+50);
  if(B&&B.k2)boss2(dt);
+ else if(B&&B.k3)boss3(dt);
  else if(B){
   B.cdT-=dt;if(B.cdT<=0){bossAtk();B.cdT=2.4}
   if(B.hp<B.mh/2&&B.ph==1){B.ph=2;say('ボスが怒った! 技の範囲が広がる')}
  }
  for(const h of HZ){h.t-=dt;if(h.t<=0){ring(h.x,h.y,h.r,'#ff4d4d',.4);SE('bakuhatu');if(Math.hypot(P.x-h.x,P.y-h.y)<h.r+10){const td=tk(h.dm);P.hp-=td;P.hit=.5;SE('dmg');fl(P.x,P.y-24,'-'+td,'#ff6b6b',18)}}}
  HZ=HZ.filter(h=>h.t>0);
- if(P.hp<=0){const bb=B;P.hp=maxHp();P.x=400;P.y=240;E=[];B=null;clr();if(FD[FI].boss&&!bdone())goField(FI-1,1);say(bb?'ボスに敗れた…':'倒れた…中央から再開')}
+ if(P.hp<=0){const bb=B;P.hp=maxHp();P.x=400;P.y=240;E=[];B=null;clr();if(FD[FI].boss&&!bdone())goField(FD[FI].bk!==undefined?FD[FI].bk:FI-1,1);say(bb?'ボスに敗れた…':'倒れた…中央から再開')}
  F=F.filter(f=>(f.t-=dt)>0);R=R.filter(r=>(r.t-=dt)>0);msg.t-=dt;
 }
 const st=(e,t)=>{if(e.textContent!==t)e.textContent=t};
@@ -443,10 +526,10 @@ function draw(){
  for(const r of R){g.globalAlpha=Math.max(0,r.t/r.d)*.6;g.fillStyle=r.c;g.beginPath();g.arc(r.x,r.y,r.r,0,7);g.fill()}
  g.globalAlpha=1;
  for(const h of HZ){g.globalAlpha=.25;g.fillStyle='#ff4d4d';g.beginPath();g.arc(h.x,h.y,h.r,0,7);g.fill();g.globalAlpha=.5;g.beginPath();g.arc(h.x,h.y,h.r*(1-h.t/h.d),0,7);g.fill();g.globalAlpha=1;g.strokeStyle='#ff4d4d';g.lineWidth=2;g.beginPath();g.arc(h.x,h.y,h.r,0,7);g.stroke()}
- drawTown();drawIx();drawGate();drawB2();drawAR();
+ drawTown();drawIx();drawGate();drawB2();drawB3();drawAR();
  for(const e of E){const sp=!e.boss&&e.t&&e.t.imOK?e.t.im:null;
   if(sp){const h=48,w=h*sp.naturalWidth/sp.naturalHeight;g.drawImage(sp,e.x-w/2,e.y-h*.6,w,h);if(e.fl>0){g.globalAlpha=.5;g.fillStyle='#fff';g.beginPath();g.arc(e.x,e.y,e.vr||12,0,7);g.fill();g.globalAlpha=1}}
-  else{g.fillStyle=e.fl>0?'#fff':e.boss?(e.k2?'#1f6f86':'#5b2a86'):(e.c||'#c9743a');g.beginPath();g.arc(e.x,e.y,e.rad||e.vr||12,0,7);g.fill();if(e.boss){g.strokeStyle=e.inv>0?'#ffe27a':e.k2?'#7ad9ff':'#ff4d4d';g.lineWidth=e.inv>0?6:3;g.stroke();continue}}
+  else{g.fillStyle=e.fl>0?'#fff':e.boss?(e.k3?'#8a6a3a':e.k2?'#1f6f86':'#5b2a86'):(e.c||'#c9743a');g.beginPath();g.arc(e.x,e.y,e.rad||e.vr||12,0,7);g.fill();if(e.boss){g.strokeStyle=e.inv>0?'#ffe27a':e.k3?'#c9a24a':e.k2?'#7ad9ff':'#ff4d4d';g.lineWidth=e.inv>0?6:3;g.stroke();continue}}
   bar(e.x-14,e.y-(sp?34:22),28,4,e.hp/e.mh,'#e5534b');g.fillStyle='#fff';g.font='10px sans-serif';g.textAlign='center';g.fillText((e.n||'')+' Lv'+e.lv,e.x,e.y+25)}
  g.fillStyle=P.hit>.5?'#fff':J().c;g.strokeStyle='#fff';g.lineWidth=2;g.beginPath();g.arc(P.x,P.y,14,0,7);g.fill();g.stroke();
  g.textAlign='center';
@@ -687,12 +770,12 @@ function drawMenu(){
  g.textAlign='center';g.fillStyle='#8b94a8';g.font='13px sans-serif';g.fillText((MT==4?'数字キー 1〜5 でタブ切替 ・ ':'←→ か A/D でタブ切替 ・ ')+(MT==0?'↑↓ で選ぶ ・ E で装備/はずす ・ ':'')+'Tab か Esc で閉じる',W/2,H-16);
 }
 let chm='',DBH=null,UID=null,touch=0,LOCALT=0,saving=0;
-const snap=()=>({v:1,t:Date.now(),lv:P.lv,exp:P.exp,job:P.job,sk:P.sk,ba:P.ba,st:P.st,inv:P.inv,eq:{w:P.eq.w?P.eq.w.id:null,a:P.eq.a?P.eq.a.id:null,s:P.eq.s?P.eq.s.id:null},cr:P.cr,gk:P.gk,gold:P.gold,it:P.it,ch:P.ch,b2:P.b2,nm:P.name,tr:P.tour});
+const snap=()=>({v:1,t:Date.now(),lv:P.lv,exp:P.exp,job:P.job,sk:P.sk,ba:P.ba,st:P.st,inv:P.inv,eq:{w:P.eq.w?P.eq.w.id:null,a:P.eq.a?P.eq.a.id:null,s:P.eq.s?P.eq.s.id:null},cr:P.cr,gk:P.gk,gold:P.gold,it:P.it,ch:P.ch,b2:P.b2,b3:P.b3,nm:P.name,tr:P.tour});
 function applySave(d){
  if(!d||!Number.isFinite(d.lv))return false;
  P.lv=Math.max(1,Math.min(50,d.lv));P.exp=d.exp||0;P.job=JOBS[d.job]?d.job:'none';P.sk=[0,1].map(i=>(d.sk&&d.sk[i])||1);P.ba=d.ba||1;
  P.st=[0,1,2,3,4].map(i=>(d.st&&d.st[i])||0);
- P.inv=d.inv||{};P.cr=d.cr||{};P.gk=d.gk?1:0;P.gold=d.gold||0;P.it=d.it||{};P.ch=d.ch||{};P.b2=d.b2?1:0;if(d.nm)P.name=d.nm;if(d.tr!==undefined)P.tour=d.tr;
+ P.inv=d.inv||{};P.cr=d.cr||{};P.gk=d.gk?1:0;P.gold=d.gold||0;P.it=d.it||{};P.ch=d.ch||{};P.b2=d.b2?1:0;P.b3=d.b3?1:0;if(d.nm)P.name=d.nm;if(d.tr!==undefined)P.tour=d.tr;
  const e=d.eq||{};P.eq={w:RC.find(r=>r.id==e.w)||null,a:RC.find(r=>r.id==e.a)||null,s:RC.find(r=>r.id==e.s)||null};
  P.hp=maxHp();P.mp=maxMp();goField(0,-1);state='play';return true;
 }
@@ -723,6 +806,26 @@ function drawB2(){
  for(const p of PJ){
   if(p.w>0){if(p.sp){g.globalAlpha=.3;g.strokeStyle='#ff4d4d';g.lineWidth=2;g.beginPath();g.moveTo(p.x,p.y);g.lineTo(p.x+p.vx*1.4,p.y+p.vy*1.4);g.stroke();g.globalAlpha=1}continue}
   g.save();g.translate(p.x,p.y);g.rotate(Math.atan2(p.vy,p.vx));g.fillStyle=p.kn?'#e8ecf5':'#7ad9ff';g.beginPath();g.moveTo(16,0);g.lineTo(-10,-6);g.lineTo(-10,6);g.fill();g.restore()}
+}
+// アースドレイク戦の描画: 床 / 地ならしの予兆と衝撃波 / 突進の予兆 / 竜巻 / 最後の分身戦の残り時間
+function drawB3(){
+ if(!B||!B.k3)return;
+ g.save();
+ g.fillStyle='#5a4326';g.fillRect(0,H-14,W,14);g.fillStyle='#7a5c35';g.fillRect(0,H-14,W,3); // 床(プレイヤーはここまで落ちる)
+ g.globalAlpha=.12;g.fillStyle='#e8d9b8';for(let i=0;i<8;i++){const x=(i*110+Date.now()/25)%W;g.fillRect(x,40+i*45%330,26,2)} // 下へ流れる風のすじ(重力の目印)
+ g.globalAlpha=1;
+ if(B.md==1){g.globalAlpha=.2+.15*Math.sin(Date.now()/60);g.fillStyle='#ff4d4d';g.fillRect(0,H-84,W,70);g.globalAlpha=1}
+ if(B.md==2){g.globalAlpha=.2+.1*Math.sin(Date.now()/60);g.fillStyle='#ff4d4d';g.fillRect(B.dir>0?B.x:0,B.y-B.rad,B.dir>0?W-B.x:B.x,B.rad*2);g.globalAlpha=1}
+ for(const w of WV){g.globalAlpha=.85;g.fillStyle='#c9a24a';g.beginPath();g.moveTo(w.x-w.w,H-14);g.lineTo(w.x,H-84);g.lineTo(w.x+w.w,H-14);g.closePath();g.fill();g.strokeStyle='#fff';g.lineWidth=2;g.stroke()}
+ g.globalAlpha=1;
+ for(const t of TN){
+  g.globalAlpha=.18;g.fillStyle='#d8e8d0';g.beginPath();g.arc(t.x,t.y,t.r,0,7);g.fill();
+  g.globalAlpha=.8;g.strokeStyle='#e8f0e0';g.lineWidth=2;
+  for(let k=0;k<6;k++){g.beginPath();g.ellipse(t.x+Math.sin(Date.now()/120+k)*6,t.y-36+k*13,10+k*5,5,0,0,7);g.stroke()}
+ }
+ g.globalAlpha=1;
+ if(B.md==6){g.textAlign='center';g.font='bold 18px sans-serif';g.fillStyle='#ff8a80';g.fillText('蘇るまで '+Math.max(0,B.rt).toFixed(1)+' 秒  (分身 残り '+E.reduce((a,e)=>a+(e.cl?1:0),0)+')',W/2,140)}
+ g.restore();
 }
 function drawPanel(){
  const j=J(),c=j.c,sk=state=='skills';let rows,pt,t,hint;
