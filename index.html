@@ -854,5 +854,6 @@ let last=performance.now(),PS=state;
 function loop(n){const dt=Math.min(.05,(n-last)/1000);last=n;if(state!=PS){PS=state;clrK()}g.setTransform(KS,0,0,KS,0,0);if(state=='play')update(dt);draw();hud();if(state=='skills'||state=='stats')drawPanel();if(state=='menu')drawMenu();if(state=='church')drawChurch();if(state=='smith')drawSmith();if(state=='shop')drawShop();requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 </script>
+<script src="chars.js"></script>
 <script src="story.js"></script>
 </body></html>
