@@ -384,7 +384,7 @@ function goalText(){
  if(k==14)return '南区の神殿で、火山について調べる';
  if(k==15)return 'ユグドラの南門(左下)から、ラグナ火山へ';
  if(k>=16){
-  if(FI==6)return P.ch.vs?'右上の梯子から、中層へ':'炉の仕掛けを解く(火皿 '+kz()+'/4)';
+  if(FI==6)return P.ch.vs?'右上の梯子から、中層へ':'炉の謎を解く(炉 '+kz()+'/4)';
   if(FI==11)return '左の梯子から、上層へ';
   if(FI==12)return '右の道から、炎竜のもとへ';
   if(FI==13)return '「炎竜」を倒す';
@@ -480,28 +480,64 @@ FD[12].ex=[lad(11,[100,160],55,145),{r:[W-50,40,W,200],to:13,p:[90,120],b:[W-10,
 FD[13].ex=[{r:[0,40,90,200],to:12,p:[W-70,120],b:[0,40,10,160]}]; // ボス部屋: 左=上層(ボスがいる間は出られない)
 FD[8].ex.find(e=>e.to==6).p=[200,60]; // ユグドラ南門 → 下層の上の隙間から入る
 const kzLad=lad(11,[700,160],650,750);
-function kzSync(){ // 仕掛けを解いたかどうかで、下層の画像(kazan1/kazan2)と右上の梯子を切り替える
+function kzSync(){if(!P.ch.vs&&![0,1,3,7,15].includes(P.ch.kz||0))P.ch.kz=0; // 仕掛けを解いたかどうかで、下層の画像(kazan1/kazan2)と右上の梯子を切り替える
  FD[6].im=P.ch.vs?kz2:kz1;
  const i=FD[6].ex.indexOf(kzLad);
  if(P.ch.vs&&i<0)FD[6].ex.push(kzLad);
  if(!P.ch.vs&&i>=0)FD[6].ex.splice(i,1);
 }
-// 下層の仕掛け: 4つの火皿(上・右・下・左)に炎を灯すと、中央の炉が動き出して梯子が現れる(灯す順番は自由)。灯した火皿は P.ch.kz の印(1,2,4,8)、解いたら P.ch.vs=1
-const KZP=[[400,100,1],[680,240,2],[400,400,4],[120,240,8]];
+// 下層の謎解き: 山 → 川 → 太陽 → 灰 の順に、炉へ炎を灯す。炉に E で絵を表示 / Enter で灯す / E で閉じる
+// 順番を間違えると、すべての炉の炎が消えてやり直し。灯した炉は P.ch.kz のビット(山1・川2・太陽4・灰8)、解いたら P.ch.vs=1
+// KZP = [x, y, ビット, 炎の色(RGB), 表示する絵]  ※炉の位置は kazan1.png の4つの台座(右=山 / 左=川 / 上=太陽 / 下=灰)
+const KZP=[[680,240,1,'255,106,42','RPG/ro_yama.png'],[120,240,2,'60,160,255','RPG/ro_kawa.png'],[400,100,4,'255,200,60','RPG/ro_taiyou.png'],[400,400,8,'180,100,255','RPG/ro_hai.png']];
 function kzSolve(){P.ch.vs=1;kzSync();ring(400,240,260,'#ff7a2a',.9);ring(700,80,120,'#ffe27a',.9);SE('shutugen');SE('bakuhatu')}
 function kzDraw(){ // 灯った火皿の光 / 解いたあとの炉の光
  g.save();const b=P.ch.kz||0,now=Date.now();
- for(const[x,y,m]of KZP)if(b&m){const gr=g.createRadialGradient(x,y,2,x,y,36);gr.addColorStop(0,'#fff6c0');gr.addColorStop(.4,'#ffb347');gr.addColorStop(1,'rgba(255,90,30,0)');g.globalAlpha=.6+.15*Math.sin(now/130+x);g.fillStyle=gr;g.beginPath();g.arc(x,y,36,0,7);g.fill()}
+ for(const[x,y,m,c]of KZP)if(b&m){const gr=g.createRadialGradient(x,y,2,x,y,40);gr.addColorStop(0,'#ffffff');gr.addColorStop(.4,'rgba('+c+',1)');gr.addColorStop(1,'rgba('+c+',0)');g.globalAlpha=.65+.15*Math.sin(now/130+x);g.fillStyle=gr;g.beginPath();g.arc(x,y,40,0,7);g.fill()}
  if(P.ch.vs){const gr=g.createRadialGradient(400,240,4,400,240,60);gr.addColorStop(0,'#ffe27a');gr.addColorStop(.5,'#ff6a2a');gr.addColorStop(1,'rgba(255,60,20,0)');g.globalAlpha=.45+.15*Math.sin(now/260);g.fillStyle=gr;g.beginPath();g.arc(400,240,60,0,7);g.fill()}
  g.restore();
 }
-const kzBr=(x,y,bit)=>({x,y,r:60,get hint(){return (P.ch.kz||0)&bit?'(炎が灯っている)':'E: 炎を灯す'},fn:()=>{
- if((P.ch.kz||0)&bit){talk('','火皿には、すでに炎が灯っている');return}
+// 炉の絵を全画面で見せる。Enter=灯す / E・Esc=閉じる(絵を見ている間は、ゲーム側のキー処理に渡さない)
+let FV=null;
+addEventListener('keydown',e=>{
+ if(!FV)return;
+ e.stopImmediatePropagation();e.preventDefault();
+ if(e.repeat)return;
+ if(e.code=='Enter')FV.light();
+ else if(e.code=='KeyE'||e.code=='Escape')FV.close();
+},true);
+function furnaceView(src,lit,onLight){
+ const d=document.createElement('div');
+ d.style.cssText='position:fixed;inset:0;z-index:35;background:#000;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .5s';
+ const im=new Image();im.style.cssText='max-width:100vw;max-height:100vh;object-fit:contain';
+ im.onerror=()=>{im.remove();d.style.color='#e8ecf5';d.textContent='(画像が見つかりません: '+src+')'};
+ im.src=src;d.appendChild(im);
+ const bar=document.createElement('div');
+ bar.style.cssText='position:absolute;left:0;right:0;bottom:12px;display:flex;justify-content:center;gap:14px;font-size:14px;color:#fff;text-shadow:0 0 4px #000';
+ const mkBtn=(t,f)=>{const b=document.createElement('button');b.textContent=t;b.style.cssText='font:inherit;padding:6px 16px;border:1px solid #fff8;border-radius:6px;background:#000a;color:#fff;cursor:pointer';b.onclick=f;return b};
+ document.body.appendChild(d);
+ const prev=state;state='view';SE('open');let done=0;
+ const end=cb=>{if(done)return;done=1;FV=null;d.style.transition='opacity .35s';d.style.opacity=0;setTimeout(()=>{d.remove();state=prev;if(cb)cb()},350)};
+ FV={close:()=>end(),light:()=>{if(!lit)end(onLight)}};
+ if(!lit)bar.appendChild(mkBtn('Enter: 炎を灯す',()=>FV&&FV.light()));else{const t=document.createElement('span');t.textContent='(すでに炎が灯っている)';bar.appendChild(t)}
+ bar.appendChild(mkBtn('E: 閉じる',()=>FV&&FV.close()));
+ d.appendChild(bar);
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{d.style.opacity=1}));
+}
+// 炉に炎を灯す: 正しい順(kz() 個目の次)なら灯る / 違えばすべて消える
+function kzLight(i){
+ const[x,y,bit]=KZP[i];
+ if(i!=kz()){
+  for(const[px,py,m]of KZP)if((P.ch.kz||0)&m)ring(px,py,60,'#8a8a8a',.6);
+  ring(x,y,60,'#8a8a8a',.6);P.ch.kz=0;SE('dmg');
+  talk('','……すべての炉の炎が、ふっと消えてしまった。順番が違うようだ');return}
  P.ch.kz=(P.ch.kz||0)|bit;ring(x,y,60,'#ffb347',.6);SE('heal');
- if(kz()==4)scene([L('','(最後の火皿に、炎が灯った)'),L('','(中央の炉が、赤く脈打ちはじめる)'),{fn:kzSolve},L('','(ゴゴゴ……と音を立てて、右上の壁に梯子が現れた)')]);
- else talk('','古い火皿に、炎を灯した。('+kz()+'/4)')}});
-FD[6].ix=[kzBr(400,100,1),kzBr(680,240,2),kzBr(400,400,4),kzBr(120,240,8),
- {x:400,y:240,r:70,hint:'E: 炉を調べる',fn:()=>{if(P.ch.vs)talk('','古代の炉は、静かに赤く燃えている');else talk('','古い炉だ。まわりの四つの火皿に炎を灯せば、動き出しそうだ。('+kz()+'/4)')}}];
+ if(kz()==4)scene([L('','(最後の炉に、炎が灯った)'),L('','(中央の炉が、赤く脈打ちはじめる)'),{fn:kzSolve},L('','(ゴゴゴ……と音を立てて、右上の壁に梯子が現れた)')]);
+ else talk('','炉に炎が灯った。('+kz()+'/4)');
+}
+const kzBr=i=>{const[x,y,bit,c,src]=KZP[i];return{x,y,r:60,hint:'E: 炉を調べる',fn:()=>furnaceView(src,!!((P.ch.kz||0)&bit),()=>kzLight(i))}};
+FD[6].ix=[kzBr(0),kzBr(1),kzBr(2),kzBr(3),
+ {x:400,y:240,r:70,hint:'E: 炉を調べる',fn:()=>talk('','文字が刻まれている。山から生まれた炎が、川を流れ、太陽に照らされ、最後に灰となる。')}];
 const sb=startBoss;startBoss=function(){sb();P.x=110;P.y=240;if(FI==3&&!P.ch.k0){P.ch.k0=1;scene(S_MEET)}}; // ボス戦開始時も左側から / 初対面の会話(最後のセリフの表示と同時に boss1 のBGMへ)
 const gf=goField;goField=function(i,s,x,y){gf(i,s,x,y);kzSync();if(bgm&&MAPBGM[i]){if((i==3&&!P.ch.k0)||(i==13&&!P.ch.f0)){bgm.pause();bgmName=''}else playBGM(MAPBGM[i])}if(i==2&&x===undefined){P.x=690;P.y=240}
  if(i==5&&P.tour==10){P.tour=11;scene(S_YGG)} // ⑤ 初めてユグドラに入ったとき
