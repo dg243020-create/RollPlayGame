@@ -2,7 +2,7 @@
 (()=>{
 const BGMDIR='BGM/'; // BGM/mati1.mp3
 let bgm=null,bgmName='';
-const MAPBGM={0:'mati1',1:'sougen1',2:'doukutu1',3:'boss1'}; // フィールド番号 → BGM(森・火山は曲ができるまで前の曲のまま)
+const MAPBGM={0:'mati1',1:'sougen1',2:'doukutu1',3:'boss1',5:'yggdra',7:'yggdra',8:'yggdra',9:'yggdra',10:'sabaku1',15:'sabaku1',13:'boss2',14:'boss3'}; // フィールド番号 → BGM(森・火山は曲ができるまで前の曲のまま)
 function playBGM(n){
  if(n==bgmName&&bgm&&!bgm.paused)return;
  bgmName=n;if(bgm)bgm.pause();
