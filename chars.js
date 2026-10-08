@@ -51,7 +51,7 @@ draw=function(){
  // ボス(分身は丸のまま)。丸の半径をほぼ0にして目印にし、そこに画像を描く
  for(const e of E)if(e.boss&&!e.cl){const im=bossImg(e);if(!ok(im))continue;
   bs.push([e,e.rad]);e.rad=.01;
-  A.push([e.x,e.y,.01,()=>{put(im,e.x,e.y+55,110);if(e.inv>0){g.save();g.strokeStyle='#ffe27a';g.lineWidth=5;g.globalAlpha=.7;ARC.call(g,e.x,e.y,60,0,7);g.stroke();g.restore()}}]);
+  A.push([e.x,e.y,.01,()=>{if(e.inv>0){g.save();g.beginPath();ARC.call(g,e.x,e.y,56,0,7);g.strokeStyle='#ffe27a';g.lineWidth=4;g.globalAlpha=.6;g.stroke();g.restore();g.beginPath()}put(im,e.x,e.y+55,110)}]); // 無敵中の金の輪は画像の後ろ。描いたあとに beginPath で線を空にしないと、元の処理が輪を塗りつぶしてしまう
  }
  SK.a=A;SK.t=T;
  try{od()}finally{for(const[e,r]of bs)e.rad=r;SK.a=[];SK.t=[]}
