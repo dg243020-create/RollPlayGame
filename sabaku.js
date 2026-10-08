@@ -55,7 +55,65 @@ FD[N].ex=[exL(10),{r:[730,50,800,191],to:14,p:[100,120],b:[W-10,40,10,161],fw:1}
 FD[14].ex=[{r:[40,40,75,200],to:N,p:[700,120],b:[0,40,10,160],fw:0}];
 FD[14].bk=N; // ボスに負けたら砂漠2に戻る
 
-// 黒い壁の中に立たないよう、位置を直す(負けて戻ったとき / Fキーで移動したとき)
+// ===== サンドメデューサの石化ビーム =====
+// 予告の線(緑の点線)が出て、1秒後にビームが走る。当たると少しダメージを受けて、1秒動けなくなる(攻撃・スキル・道具も使えない)。
+// 予告の間に横へ動けば避けられる。メデューサを先に倒せば、ビームは消える。
+// 調整用の数字: FREEZE=動けない時間(秒) / WIND=予告の長さ(秒) / BDMG=ダメージ倍率(0で無ダメージ) / GRACE=石化が解けたあと、また石化しない時間(秒)
+const FREEZE=1,WIND=1,BDMG=.6,GRACE=1.5;
+let BM=[];
+const startBeam=e=>{BM.push({e,x:e.x,y:e.y,a:Math.atan2(P.y-e.y,P.x-e.x),w:WIND,on:0,hit:0});SE('cur')};
+function petrify(b){
+ P.stone=FREEZE;P.sImm=FREEZE+GRACE;
+ fl(P.x,P.y-30,'石化!','#cfcfcf',22);ring(P.x,P.y,36,'#9a9a9a',.4);
+ if(BDMG>0){const d=tk(Math.max(1,Math.round(b.e.dm*BDMG)));P.hp-=d;SE('dmg');fl(P.x,P.y-12,'-'+d,'#ff6b6b',16)}
+}
+const up0=update;
+update=function(dt){
+ // 石化中は、押しているキーを無いものとして扱う
+ let sv=null;
+ if(P.stone>0){sv={...K};for(const k in K)K[k]=0}
+ up0(dt);
+ if(sv)Object.assign(K,sv);
+ P.stone=Math.max(0,(P.stone||0)-dt);P.sImm=Math.max(0,(P.sImm||0)-dt);
+ // メデューサが矢を撃った瞬間(次に撃つまでの時間がジャンプした)に、矢を消してビームの予告に替える
+ for(const e of E){
+  if(e.t!==TY.medusa)continue;
+  if(e._p!==undefined&&e.sT>e._p+.5){const i=AR.findIndex(a=>Math.hypot(a.x-e.x,a.y-e.y)<14);if(i>=0)AR.splice(i,1);startBeam(e)}
+  e._p=e.sT;
+ }
+ for(const b of BM){
+  if(b.w>0){
+   if(!E.includes(b.e)){b.dead=1;continue}
+   b.w-=dt;if(b.w<=0){b.on=.25;SE('mag2');ring(b.x,b.y,40,'#7dff9d',.3)}
+  }else{
+   b.on-=dt;
+   if(!b.hit&&P.stone<=0&&P.sImm<=0){
+    const c=Math.cos(b.a),s=Math.sin(b.a),dx=P.x-b.x,dy=P.y-b.y;
+    if(dx*c+dy*s>0&&Math.abs(-dx*s+dy*c)<8+13){b.hit=1;petrify(b)}
+   }
+  }
+ }
+ BM=BM.filter(b=>!b.dead&&(b.w>0||b.on>0));
+};
+// 石化中は、道具(1〜4)とE(話す・調べる)も使えない
+addEventListener('keydown',e=>{if(P.stone>0&&state=='play'&&(/^Digit[1-4]$/.test(e.code)||e.code=='KeyE')){e.stopImmediatePropagation();e.preventDefault()}},true);
+// ビームの予告線・ビーム・石化したプレイヤーの描画
+const dr0=draw;
+draw=function(){
+ dr0();
+ for(const b of BM){
+  g.save();g.translate(b.x,b.y);g.rotate(b.a);
+  if(b.w>0){g.globalAlpha=.3+.2*Math.sin(Date.now()/60);g.strokeStyle='#7dff9d';g.lineWidth=2;g.setLineDash([10,8]);g.beginPath();g.moveTo(0,0);g.lineTo(1000,0);g.stroke()}
+  else{g.globalAlpha=.9;g.fillStyle='#7dff9d';g.fillRect(0,-8,1000,16);g.fillStyle='#fff';g.fillRect(0,-3,1000,6)}
+  g.restore();
+ }
+ if(P.stone>0){
+  g.save();g.globalAlpha=.78;g.fillStyle='#9a9a9a';g.strokeStyle='#555';g.lineWidth=3;g.beginPath();g.arc(P.x,P.y,19,0,7);g.fill();g.stroke();
+  g.globalAlpha=1;g.textAlign='center';g.font='bold 13px sans-serif';g.fillStyle='#fff';g.fillText('石化 '+P.stone.toFixed(1),P.x,P.y-28);g.restore();
+ }
+};
+
+// 黒い壁の中に立たないよう、位置を直す(負けて戻ったとき / Fキーで移動したとき)。場所を移ったらビームと石化を消す
 const gf0=goField;
-goField=function(i,s,x,y){gf0(i,s,x,y);if(x===undefined){if(i===14){P.x=100;P.y=120}else if(i===N&&s>0){P.x=690;P.y=120}}};
+goField=function(i,s,x,y){gf0(i,s,x,y);BM=[];P.stone=0;if(x===undefined){if(i===14){P.x=100;P.y=120}else if(i===N&&s>0){P.x=690;P.y=120}}};
 })();
