@@ -15,6 +15,7 @@ P.name='アルト';P.tour=0;
 const Ru='ルミ',L=(n,t)=>({n,t});
 let DQ=[],DI=0,DCB=null,DCH=null,CI=0;
 let END1=0; // 1=クリスタルドレイクを倒した直後(職業選択が終わったら終幕の会話を始める)
+let END2=0; // 1=炎竜を倒した直後(play に戻ってから終幕の会話を始める)
 $('ttext').style.whiteSpace='pre-line';
 $('tbox').onclick=()=>{if(state=='talk')nextLine()};
 function scene(q,cb){DQ=q.slice();DI=0;DCB=cb||null;state='talk';nextLine()}
@@ -180,7 +181,7 @@ const S_END1=[
  L('長老','あの山には、炎の竜が棲むという。水晶竜の次は、炎竜か……'),
  L(Ru,'……行くんでしょ、{p}。ハルシアの森を抜けた先だよ。気をつけてね')];
 // ===== ⑤〜⑨: ユグドラ到着 → 街の人の話 → 生命樹の異変 → 火山の爆発 → 南区の神殿 → ラグナ火山へ =====
-// 進行度 P.tour: 10=ユグドラへ向かう / 11=街の人から話を聞く(4人) / 12=生命樹を調べる / 14=南区の神殿へ / 15=南門からラグナ火山へ / 16=ラグナ火山(下層)に入った
+// 進行度 P.tour: 10=ユグドラへ向かう / 11=街の人から話を聞く(4人) / 12=生命樹を調べる / 14=南区の神殿へ / 15=南門からラグナ火山へ / 16=ラグナ火山(下層)に入った / 17=炎竜を倒した
 // 街の人から聞いた話は P.ch.yi のビット(1=生命樹の葉 2=枯れる植物 4=地面の揺れ 8=火山の煙)で覚えている
 const yi=()=>{const b=P.ch.yi||0;return (b&1)+(b>>1&1)+(b>>2&1)+(b>>3&1)};
 const kz=()=>{const b=P.ch.kz||0;return (b&1)+(b>>1&1)+(b>>2&1)+(b>>3&1)}; // 火山 下層で灯した火皿の数
@@ -228,6 +229,93 @@ const S_GATE=[
  L('','(ユグドラの南門を出ると、遠くに、赤く染まった山が見えた)'),
  L('','(ラグナ火山。山頂から立ちのぼる煙が、空を覆いはじめている)'),
  L('{p}','……行こう')];
+// ===== 炎竜編: 中層・上層の揺れ → 炎竜との初遭遇 → 撃破 → 火山崩壊 → 脱出 =====
+const D2='炎竜';
+// 画面を揺らす(canvas を ms ミリ秒、px ピクセルぶん揺らす)
+const shake=(ms,px)=>{const cv=g.canvas;if(!cv)return;const t0=performance.now();
+ (function f(){const k=(performance.now()-t0)/ms;if(k>=1){cv.style.transform='';return}
+  const a=px*(1-k);cv.style.transform='translate('+((Math.random()*2-1)*a)+'px,'+((Math.random()*2-1)*a)+'px)';requestAnimationFrame(f)})()};
+const quakeFx=()=>{boom();shake(900,7)};
+// 中層・上層に初めて入ったとき
+const S_MID=[
+ L('','(梯子を登ると、中層。肌を刺すような熱気が満ちている)'),
+ {fn:quakeFx},L('','ゴゴゴゴゴ……'),
+ L('','(火山が大きく揺れた。天井から、小石がぱらぱらと落ちてくる)'),
+ L('{p}','……噴火が、激しくなっている。急がないと')];
+const S_UP=[
+ L('','(さらに奥へ。上層に出ると、足もとの岩肌が赤く脈打っていた)'),
+ {fn:quakeFx},L('','ゴゴゴゴゴ……!'),
+ L('','(火山が、何度も大きく揺れる。溶岩の流れが、さっきよりずっと速い)'),
+ L('{p}','……この先に、何かいる')];
+// ボス部屋に初めて入ったとき(咆哮のあと暗転して、炎竜のBGM boss2 に切り替わる)
+const S_FMEET=[
+ L('','(右の道を抜けると、火山の奥深く。溶岩が流れる巨大な空間に出た)'),
+ L('','(足を踏み入れた、その瞬間――)'),
+ {fn:quakeFx},L('','ゴゴゴゴゴ……'),
+ L('','(地面が大きく揺れる。溶岩が激しく波打ち、巨大な影が、その中から立ちのぼった)'),
+ {fn:()=>{boom();ring(400,200,260,'#ff6a2a',.9)}},
+ L('','炎竜が、姿を現した'),
+ L('{p}','……お前が、炎竜か。'),
+ L(D2,'…………。'),
+ L('{p}','お前のせいで、火山が噴火しているんだな。'),
+ L(D2,'人間よ。'),L(D2,'ここから立ち去れ。'),
+ L('{p}','できない。'),L('{p}','このままじゃ、火山の被害が広がる。'),
+ L(D2,'……ならば、力ずくで追い返すまでだ。'),
+ L('','(炎竜が、ゆっくりと翼を広げた)'),
+ {fn:boom},L('','ゴォォォォ……'),
+ L('','(周囲の溶岩が、一斉に吹き上がる)'),
+ L('{p}','……やるしかないな。'),
+ L(D2,'その覚悟――'),L(D2,'炎で示してみろ。'),
+ L('','グォォォォォォン!!!'),
+ {fn:()=>{SE('bakuhatu');shake(700,9)}},
+ {as:n=>fade(1,.5,n)},{fn:()=>playBGM('boss2')},{as:n=>fade(0,.6,n)},
+ L('','BOSS\n炎竜 ― ラグナドレイク')];
+// 火山からの脱出: 下層(古代施設)→ ユグドラ南門の外へ
+const toLow=()=>{goField(6,0);P.x=200;P.y=100;P.hit=0;E=[];B=null;clr()};
+const toOut=()=>{goField(8,0);P.x=400;P.y=H-80;P.hit=0;E=[];B=null;clr()};
+const S_END2=[
+ L('','(炎竜が、ゆっくりと膝をついた)'),
+ {fn:()=>{if(bgm)bgm.pause()}},
+ L('','(周囲の炎が、少しずつ弱まっていく)'),
+ L('{p}','……終わった……のか?'),
+ L(D2,'…………。'),
+ L('','(炎竜が、{p}をじっと見つめる)'),
+ L(D2,'……人間よ。'),L(D2,'見事だ。'),
+ L('{p}','……。'),
+ L(D2,'我が敗れた以上……この山を支配する炎も、いずれ鎮まる。'),
+ L('{p}','なら……これで火山も止まるんだな。'),
+ L(D2,'……ああ。'),
+ {fn:()=>{ring(400,200,200,'#ffb347',.9);ring(400,200,100,'#fff',.6);SE('flash')}},
+ L('','(炎竜の身体が、徐々に光へと変わっていく)'),
+ L('{p}','待て。'),L('{p}','お前は……なぜ火山を暴れさせていた?'),
+ L(D2,'…………。'),
+ L('','(炎竜は、少しだけ{p}を見た)'),
+ L(D2,'……我は、ただ――'),
+ {fn:()=>{ring(400,200,320,'#fff',.9);SE('flash')}},
+ L('','(言葉が途切れる。炎竜の姿が、完全に消えた)'),
+ // ④ 火山の異変
+ {fn:quakeFx},L('','ゴゴゴゴゴゴゴゴ……!!'),
+ L('{p}','……何だ!?'),
+ L('','(火山全体が、激しく揺れはじめる)'),
+ {fn:()=>{quakeFx();ring(400,420,320,'#ff6a2a',.9)}},
+ L('','(溶岩が、一気に噴き上がった)'),
+ L('{p}','まずい……!'),
+ L('','(足場が崩れていく。来た道を、全力で走って戻る)'),
+ // ⑤ 脱出
+ {as:n=>fade(1,.8,n)},{fn:toLow},{as:n=>fade(0,.6,n)},
+ L('','(下層へ向かって走る。背後から、次々と岩が落ちてくる)'),
+ {fn:()=>{SE('bakuhatu');shake(500,6)}},L('','ドォン!'),
+ {fn:()=>{SE('bakuhatu');shake(500,6)}},L('','ドォン!'),
+ L('{p}','急げ……!'),
+ L('','(なんとか、古代施設まで戻ってきた)'),
+ // ⑥ 火山の外へ
+ {as:n=>fade(1,1,n)},{fn:toOut},{as:n=>fade(0,1.2,n)},
+ L('','(しばらくして、ようやく火山の外へ出た)'),
+ L('','(空には、まだ黒い煙が残っている。しかし、先ほどまで激しく噴き上がっていた火山は、少しずつ静かになっていく)'),
+ L('{p}','……終わった。'),
+ L('','(遠くに見えるラグナ火山を、じっと見つめる)'),
+ L('{p}','炎竜は……もういない。'),
+ L('','({p}は、その場を後にした)')];
 const addN=o=>{NPC.push(o);FD[0].ix.push(o)};
 const HINT={0.5:'扉の前で、Eを押して外に出よう',0.6:'外に出てみよう',1:'あそこの水晶の人影を、Eで調べてみて',2:'広場の奥の鍛冶屋に行ってみよう',3:'鍛冶屋で、始まりの剣を買ってみよう',6:'教会は左上だよ。神父様に会いに行こう',10:'ハルシアの森を抜けた先に、ユグドラっていう大きな街があるよ'};
 addN({x:tx(1100),y:ty(560),n:'水晶',c:'#bfefff',hint:'E: 調べる',fn:()=>{const t=L('','冷たく、透き通っている。人の形をした水晶だ');if(P.tour==1){P.tour=2;scene([t,...S_CRY])}else talk('',t.t)}});
@@ -306,6 +394,7 @@ function goalText(){
 // 画面の状態が変わったことを検知(お店や教会を閉じたときにイベントを起こす)
 // BGMの音量は毎フレーム設定(SET.bgm)に合わせる
 let ps=state;(function watch(){if(state!=ps){const o=ps;ps=state;onSt(o,state)}if(bgm)bgm.volume=Math.max(0,Math.min(1,SET.bgm/100));if(END1&&state=='play'){END1=0;scene(S_END1,()=>{P.tour=10})}
+if(END2&&state=='play'){END2=0;scene(S_END2,()=>{P.tour=17;P.b2=P.b2||1})} // 炎竜を倒したあとの終幕
 st($('goal').children[1],goalText()||'―');lava(performance.now());tick();death(performance.now());requestAnimationFrame(watch)})();
 // キー入力: 会話中・選択中・開始前は、元のキー処理より先に受け取って止める
 addEventListener('keydown',e=>{
@@ -414,11 +503,24 @@ const kzBr=(x,y,bit)=>({x,y,r:60,get hint(){return (P.ch.kz||0)&bit?'(炎が灯�
 FD[6].ix=[kzBr(400,100,1),kzBr(680,240,2),kzBr(400,400,4),kzBr(120,240,8),
  {x:400,y:240,r:70,hint:'E: 炉を調べる',fn:()=>{if(P.ch.vs)talk('','古代の炉は、静かに赤く燃えている');else talk('','古い炉だ。まわりの四つの火皿に炎を灯せば、動き出しそうだ。('+kz()+'/4)')}}];
 const sb=startBoss;startBoss=function(){sb();P.x=110;P.y=240;if(FI==3&&!P.ch.k0){P.ch.k0=1;scene(S_MEET)}}; // ボス戦開始時も左側から / 初対面の会話(最後のセリフの表示と同時に boss1 のBGMへ)
-const gf=goField;goField=function(i,s,x,y){gf(i,s,x,y);kzSync();if(bgm&&MAPBGM[i]){if(i==3&&!P.ch.k0){bgm.pause();bgmName=''}else playBGM(MAPBGM[i])}if(i==2&&x===undefined){P.x=690;P.y=240}
+const gf=goField;goField=function(i,s,x,y){gf(i,s,x,y);kzSync();if(bgm&&MAPBGM[i]){if((i==3&&!P.ch.k0)||(i==13&&!P.ch.f0)){bgm.pause();bgmName=''}else playBGM(MAPBGM[i])}if(i==2&&x===undefined){P.x=690;P.y=240}
  if(i==5&&P.tour==10){P.tour=11;scene(S_YGG)} // ⑤ 初めてユグドラに入ったとき
- else if(i==6&&P.tour==15){P.tour=16;scene(S_GATE)}}; // ⑨ 南門からラグナ火山(下層)に入ったとき / 敗北して洞窟に戻るときは黒い部分の内側へ
+ else if(i==6&&P.tour==15){P.tour=16;scene(S_GATE)} // ⑨ 南門からラグナ火山(下層)に入ったとき / 敗北して洞窟に戻るときは黒い部分の内側へ
+ else if(i==11&&!P.ch.q1){P.ch.q1=1;scene(S_MID)} // 中層に初めて入ったとき(火山が揺れる)
+ else if(i==12&&!P.ch.q2){P.ch.q2=1;scene(S_UP)} // 上層に初めて入ったとき(さらに揺れる)
+ else if(i==13&&!P.ch.f0){P.ch.f0=1;scene(S_FMEET)}}; // ボス部屋に初めて入ったとき(炎竜との初遭遇。1回だけ)
 // クリスタルドレイク(ボス1)を倒したら、職業選択のあと(play に戻ってから)終幕の会話を始める
 const oh=hurt;hurt=function(e,m){const b=e&&e.boss&&!e.k2&&!e.k3;oh(e,m);if(b&&e.hp<=0&&!P.ch.k1){P.ch.k1=1;END1=1}};
+// 炎竜(ボス部屋13のボス)を倒したら、play に戻ってから終幕の会話(S_END2)を始める
+const oh2=hurt;hurt=function(e,m){const b=e&&e.boss&&FI==13;oh2(e,m);if(b&&e.hp<=0&&!P.ch.f1){P.ch.f1=1;END2=1}};
+// 中層・上層を歩いている間、ときどき火山が揺れる(上層のほうが間隔が短い)
+let quakeT=0;
+(function qk(){const now=performance.now();
+ if((FI==11||FI==12)&&state=='play'){
+  if(!quakeT)quakeT=now+18000;
+  if(now>=quakeT){SE('bakuhatu');ring(400,240,360,'#ff6a2a',.5);shake(600,4);quakeT=now+(FI==12?12000:20000)+Math.random()*8000}
+ }else quakeT=0;
+ requestAnimationFrame(qk)})();
 // 町(mati1.png): 画像の横幅が 1584→1440 に変わったので、建物・NPCの位置を新しい画像に合わせて取り直す
 const t9=v=>v*W/1440,R9=(a,b,c,d,o)=>({x:t9(a),y:t9(b),w:t9(c-a),h:t9(d-b),...o});
 const doorB=R9(200,646,304,654,{n:'扉'});let doorOpen=false;
