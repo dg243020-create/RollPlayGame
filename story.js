@@ -186,6 +186,24 @@ const S_END1=[
 const yi=()=>{const b=P.ch.yi||0;return (b&1)+(b>>1&1)+(b>>2&1)+(b>>3&1)};
 const kz=()=>{const b=P.ch.kz||0;return (b&1)+(b>>1&1)+(b>>2&1)+(b>>3&1)}; // 火山 下層で灯した火皿の数
 function boom(){SE('bakuhatu');ring(400,240,420,'#ff6a2a',.9);ring(400,420,300,'#ffb347',.8)}
+// ===== 素材(sozai/ フォルダ)の画像エフェクト: キラキラ(kirakira)と隕石(meteor)。見た目だけの演出で、ダメージなどはなし =====
+// フォルダ名を変えるときは SZ を直す(index.html から見た場所)
+const SZ='sozai/',szImg=n=>{const i=new Image();i.src=SZ+n;return i};
+const IMG={kkY:szImg('kirakira_02_yellow.png'),kkR:szImg('kirakira_02_red.png'),met:szImg('meteor_gray.png')};
+const FX=[];
+function sparkle(x,y,n,red){for(let i=0;i<n;i++)FX.push({k:'kk',img:red?IMG.kkR:IMG.kkY,x:x+(Math.random()*2-1)*46,y:y+(Math.random()*2-1)*40,s:18+Math.random()*22,t0:performance.now()+i*70,d:700+Math.random()*400})}
+function meteors(n){for(let i=0;i<n;i++)FX.push({k:'met',img:IMG.met,x:300+Math.random()*560,y:-50,dx:-(300+Math.random()*120),dy:300+Math.random()*120,s:44+Math.random()*24,t0:performance.now()+i*220,d:1100+Math.random()*400})}
+function fxDraw(){
+ if(!FX.length)return;
+ const now=performance.now();g.save();g.imageSmoothingEnabled=false;
+ for(let i=FX.length-1;i>=0;i--){const f=FX[i],t=(now-f.t0)/f.d;
+  if(t>=1){FX.splice(i,1);continue}
+  if(t<0||!f.img.complete||!f.img.naturalWidth)continue;
+  if(f.k=='kk'){const z=f.s*Math.sin(Math.PI*t);g.globalAlpha=1-t*.5;g.drawImage(f.img,f.x-z/2,f.y-z/2,z,z)}
+  else{g.globalAlpha=1;g.drawImage(f.img,f.x+f.dx*t-f.s/2,f.y+f.dy*t-f.s/2,f.s,f.s)}
+ }
+ g.restore();
+}
 // ⑤ 森を抜けてユグドラへ(初めて入った瞬間に1回)
 const S_YGG=[
  L('','(森を抜けると、視界が一気にひらけた)'),
@@ -235,7 +253,7 @@ const D2='炎竜';
 const shake=(ms,px)=>{const cv=g.canvas;if(!cv)return;const t0=performance.now();
  (function f(){const k=(performance.now()-t0)/ms;if(k>=1){cv.style.transform='';return}
   const a=px*(1-k);cv.style.transform='translate('+((Math.random()*2-1)*a)+'px,'+((Math.random()*2-1)*a)+'px)';requestAnimationFrame(f)})()};
-const quakeFx=()=>{boom();shake(900,7)};
+const quakeFx=()=>{boom();shake(900,7);meteors(4)};
 // 中層・上層に初めて入ったとき
 const S_MID=[
  L('','(梯子を登ると、中層。肌を刺すような熱気が満ちている)'),
@@ -345,7 +363,7 @@ function lava(now){
 }
 // 死亡演出: 暗転 → 神父のメッセージ → 教会で復活(デスペナルティなし)
 let DK=0,dk=0,lastMsg=msg,lastT=performance.now(); // DK=暗転の濃さ(0〜1) / dk=0なし 1暗転中 2神父の会話 3明るくなる中
-const od=draw;draw=function(){od();if(FI==6)kzDraw();if(DK>0){g.fillStyle='rgba(0,0,0,'+DK+')';g.fillRect(0,0,W,H)}};
+const od=draw;draw=function(){od();if(FI==6)kzDraw();fxDraw();if(DK>0){g.fillStyle='rgba(0,0,0,'+DK+')';g.fillRect(0,0,W,H)}};
 function death(now){
  const dt=Math.min(.05,(now-lastT)/1000);lastT=now;
  if(msg!==lastMsg){lastMsg=msg;
@@ -456,13 +474,15 @@ const yTalk=(bit,n,lines)=>()=>{
 };
 FD[5].ix=[treeIx(760,440),yNpc(300,430,'住民','#d8c8a0','E: 話す',yTalk(1,'住民',['生命樹の葉が、やたらと落ちてくるんだ。','いつも青々としているのが自慢の樹だったのに……掃いても掃いても、すぐ積もっちまう。こんなこと、初めてだよ。']))];
 FD[7].ix=[yNpc(468,335,'道具屋','#7ad9ff','E: 買い物',()=>NPC[1].fn()),yNpc(1189,335,'鍛冶屋','#e0453f','E: 作る',()=>f2()),treeIx(40,440),yNpc(900,430,'花屋','#f0a8c8','E: 話す',yTalk(2,'花屋',['店の花が、次々に枯れていくの。','街じゅうの植物が、一部だけど枯れ始めてるのよ。水も土も、いつも通りなのに……']))];
-FD[8].ix=[yNpc(300,430,'神父','#e8e4f0','E: 祈る',()=>NPC[0].fn()),treeIx(760,40),
- yNpc(1000,430,'衛兵','#9aa8c0','E: 話す',yTalk(4,'衛兵',['最近、地面が時々揺れるんだ。ほんの一瞬だが、気味が悪い。','この街は、昔から地震なんてほとんど無いはずなんだがな。'])),
- yNpc(320,560,'神官','#d8e8c0','E: 話す',()=>{ // ⑧ 南区の神殿(この教会の中。画像に神殿の絵がないので、ここに置いてある)
+// ⑧ 南区の神殿の神官(南東の画面に置く)
+const templeIx=yNpc(1115,425,'神官','#d8e8c0','E: 話す',()=>{ // ⑧ 南区の神殿(ygg4.png=南東の画面、右上の神殿の入口の前。位置を変えたいときは、この行の 1115,425 を直す)
   if(P.tour==14)scene(S_TEMPLE,()=>{P.tour=15});
   else if(P.tour>=15)talk('神官','ラグナ火山の炉のことを、お忘れなく。……どうか、お気をつけて。');
-  else talk('神官','ここは、生命樹に祈りを捧げる神殿です。')})];
-FD[9].ix=[treeIx(40,40),yNpc(500,430,'商人','#c8b070','E: 話す',yTalk(8,'商人',['南のラグナ火山を見たかい? 大量の煙が出ててね。','あれじゃ、商売で南へ行けやしない。あんな煙、初めて見たよ。']))];
+  else talk('神官','ここは、生命樹に祈りを捧げる神殿です。')});
+FD[8].ix=[yNpc(300,430,'神父','#e8e4f0','E: 祈る',()=>NPC[0].fn()),treeIx(760,40),
+ yNpc(1000,430,'衛兵','#9aa8c0','E: 話す',yTalk(4,'衛兵',['最近、地面が時々揺れるんだ。ほんの一瞬だが、気味が悪い。','この街は、昔から地震なんてほとんど無いはずなんだがな。'])),
+];
+FD[9].ix=[treeIx(40,40),yNpc(500,430,'商人','#c8b070','E: 話す',yTalk(8,'商人',['南のラグナ火山を見たかい? 大量の煙が出ててね。','あれじゃ、商売で南へ行けやしない。あんな煙、初めて見たよ。'])),templeIx];
 // ===== ラグナ火山(画像 kazan1〜5): 下層=kazan1(仕掛けを解くと kazan2 の梯子が出る) / 中層=kazan3 / 上層=kazan4 / ボス部屋=kazan5 =====
 // 画像は1440x864。当たり判定は C(列,行,列,行)=72px のマスで「入れない四角」を指定(画像を見て決めた値)
 setImg(6,'RPG/kazan1.png');setImg(11,'RPG/kazan3.png');setImg(12,'RPG/kazan4.png');setImg(13,'RPG/kazan5.png');
@@ -490,7 +510,7 @@ function kzSync(){if(!P.ch.vs&&![0,1,3,7,15].includes(P.ch.kz||0))P.ch.kz=0; // 
 // 順番を間違えると、すべての炉の炎が消えてやり直し。灯した炉は P.ch.kz のビット(山1・川2・太陽4・灰8)、解いたら P.ch.vs=1
 // KZP = [x, y, ビット, 炎の色(RGB), 表示する絵]  ※炉の位置は kazan1.png の4つの台座(右=山 / 左=川 / 上=太陽 / 下=灰)
 const KZP=[[680,240,1,'255,106,42','RPG/ro_yama.png'],[120,240,2,'60,160,255','RPG/ro_kawa.png'],[400,100,4,'255,200,60','RPG/ro_taiyou.png'],[400,400,8,'180,100,255','RPG/ro_hai.png']];
-function kzSolve(){P.ch.vs=1;kzSync();ring(400,240,260,'#ff7a2a',.9);ring(700,80,120,'#ffe27a',.9);SE('shutugen');SE('bakuhatu')}
+function kzSolve(){P.ch.vs=1;kzSync();sparkle(400,240,14);sparkle(700,80,10);ring(400,240,260,'#ff7a2a',.9);ring(700,80,120,'#ffe27a',.9);SE('shutugen');SE('bakuhatu')}
 function kzDraw(){ // 灯った火皿の光 / 解いたあとの炉の光
  g.save();const b=P.ch.kz||0,now=Date.now();
  for(const[x,y,m,c]of KZP)if(b&m){const gr=g.createRadialGradient(x,y,2,x,y,40);gr.addColorStop(0,'#ffffff');gr.addColorStop(.4,'rgba('+c+',1)');gr.addColorStop(1,'rgba('+c+',0)');g.globalAlpha=.65+.15*Math.sin(now/130+x);g.fillStyle=gr;g.beginPath();g.arc(x,y,40,0,7);g.fill()}
@@ -531,7 +551,7 @@ function kzLight(i){
   for(const[px,py,m]of KZP)if((P.ch.kz||0)&m)ring(px,py,60,'#8a8a8a',.6);
   ring(x,y,60,'#8a8a8a',.6);P.ch.kz=0;SE('dmg');
   talk('','……すべての炉の炎が、ふっと消えてしまった。順番が違うようだ');return}
- P.ch.kz=(P.ch.kz||0)|bit;ring(x,y,60,'#ffb347',.6);SE('heal');
+ P.ch.kz=(P.ch.kz||0)|bit;ring(x,y,60,'#ffb347',.6);SE('heal');sparkle(x,y,8);
  if(kz()==4)scene([L('','(最後の炉に、炎が灯った)'),L('','(中央の炉が、赤く脈打ちはじめる)'),{fn:kzSolve},L('','(ゴゴゴ……と音を立てて、右上の壁に梯子が現れた)')]);
  else talk('','炉に炎が灯った。('+kz()+'/4)');
 }
@@ -554,7 +574,7 @@ let quakeT=0;
 (function qk(){const now=performance.now();
  if((FI==11||FI==12)&&state=='play'){
   if(!quakeT)quakeT=now+18000;
-  if(now>=quakeT){SE('bakuhatu');ring(400,240,360,'#ff6a2a',.5);shake(600,4);quakeT=now+(FI==12?12000:20000)+Math.random()*8000}
+  if(now>=quakeT){SE('bakuhatu');ring(400,240,360,'#ff6a2a',.5);shake(600,4);meteors(2);quakeT=now+(FI==12?12000:20000)+Math.random()*8000}
  }else quakeT=0;
  requestAnimationFrame(qk)})();
 // 町(mati1.png): 画像の横幅が 1584→1440 に変わったので、建物・NPCの位置を新しい画像に合わせて取り直す
