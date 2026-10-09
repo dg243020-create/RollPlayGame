@@ -577,6 +577,57 @@ let quakeT=0;
   if(now>=quakeT){SE('bakuhatu');ring(400,240,360,'#ff6a2a',.5);shake(600,4);meteors(2);quakeT=now+(FI==12?12000:20000)+Math.random()*8000}
  }else quakeT=0;
  requestAnimationFrame(qk)})();
+// ===== 攻撃のスラッシュ(sozai/kogeki_cut_01・02): 見習い(剣)とナイトの通常攻撃・スキルで出る =====
+// 左右の三日月を、振るたびに交互に使う。敵がいればそっちへ、いなければ向いている方向へ振る。見た目だけで、ダメージには関係しない
+const SLI=[szImg('kogeki_cut_02.png'),szImg('kogeki_cut_01.png')],SL=[];let SLN=0;
+function slash(a,s=64,dl=0,dist=34){SL.push({a,s,dist,alt:(SLN++)&1,t0:performance.now()+dl,d:260})}
+function slashDraw(){
+ if(!SL.length)return;
+ const now=performance.now();g.save();g.imageSmoothingEnabled=false;
+ for(let i=SL.length-1;i>=0;i--){const f=SL[i],t=(now-f.t0)/f.d;
+  if(t>=1){SL.splice(i,1);continue}
+  const im=SLI[f.alt];if(t<0||!im.complete||!im.naturalWidth)continue;
+  const w=f.s*(.75+.35*t),h=w*im.naturalHeight/im.naturalWidth;
+  g.save();g.translate(P.x+Math.cos(f.a)*f.dist,P.y+Math.sin(f.a)*f.dist);
+  g.rotate(f.a+(f.alt?Math.PI:0)+(t-.5)*(f.alt?-.9:.9));g.globalAlpha=1-t*t;
+  g.drawImage(im,-w/2,-h/2,w,h);g.restore()}
+ g.restore();
+}
+// ===== 魔法の通常攻撃(光線): メイジ=紫と白 / ヒーラー=白と黄緑。自分から敵へ、ゆらめく光線がのびる(見た目だけ) =====
+const BM=[],BMC={mage:['155,89,224','217,179,255'],healer:['125,216,106','230,255,154']}; // [外側の色, 中間の色](芯は白)
+function beam(job,x2,y2){BM.push({job,x2,y2,t0:performance.now(),d:230})}
+function beamDraw(){
+ if(!BM.length)return;
+ const now=performance.now();g.save();g.globalCompositeOperation='lighter';g.lineCap='round';g.lineJoin='round';
+ for(let i=BM.length-1;i>=0;i--){const f=BM[i],t=(now-f.t0)/f.d;
+  if(t>=1){BM.splice(i,1);continue}
+  const env=Math.min(1,t*8)*(1-t*t),x1=P.x,y1=P.y,dx=f.x2-x1,dy=f.y2-y1,len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len,c=BMC[f.job];
+  for(const[col,al,wd,am]of [[c[0],.32,17,5],[c[1],.65,9,3],['255,255,255',.95,3.5,1.5]]){
+   g.strokeStyle='rgba('+col+','+al*env+')';g.lineWidth=wd*env;g.beginPath();
+   for(let k=0;k<=16;k++){const u=k/16,o=Math.sin(u*10-now/45)*am*Math.sin(Math.PI*u)*env;g[k?'lineTo':'moveTo'](x1+dx*u+nx*o,y1+dy*u+ny*o)}
+   g.stroke()}
+  for(const[x,y,r]of [[f.x2,f.y2,30],[x1,y1,18]]){const rr=r*env+1,gr=g.createRadialGradient(x,y,1,x,y,rr);
+   gr.addColorStop(0,'rgba(255,255,255,'+.9*env+')');gr.addColorStop(.45,'rgba('+c[1]+','+.6*env+')');gr.addColorStop(1,'rgba('+c[0]+',0)');
+   g.fillStyle=gr;g.beginPath();g.arc(x,y,rr,0,7);g.fill()}
+ }
+ g.restore();
+}
+const use0=use;
+use=function(i){
+ const kn=P.job=='knight',sk=kn&&i>0?J().sk[i-1]:null;
+ const fire=P.cd[i]<=0&&(i==0?(P.job=='none'&&!useMag()||kn):!!sk&&P.mp>=sk.mp); // 実際に攻撃が出るときだけ
+ let a=P.face>0?0:Math.PI;
+ if(fire&&i==0){const t=nearest(J().r+20);if(t)a=Math.atan2(t.y-P.y,t.x-P.x)}
+ let bm=null; // メイジ・ヒーラーの通常攻撃(魔法)は光線
+ if(i==0&&P.cd[0]<=0&&(P.job=='mage'||P.job=='healer')){const t=nearest(J().r+20),aa=t?Math.atan2(t.y-P.y,t.x-P.x):(P.face>0?0:Math.PI),Ln=t?Math.hypot(t.x-P.x,t.y-P.y):J().r*.7;bm=[P.job,P.x+Math.cos(aa)*Ln,P.y+Math.sin(aa)*Ln]}
+ use0(i);
+ if(bm)beam(bm[0],bm[1],bm[2]);
+ if(!fire)return;
+ if(i==0)slash(a);
+ else if(i==1)for(let k=0;k<4;k++)slash(a+k*Math.PI/2,84,k*55,40); // 薙ぎ払い: ぐるっと一周
+ else slash(a,120,0,50); // 大振り: 大きく一振り
+};
+const odS=draw;draw=function(){odS();slashDraw();beamDraw()};
 // 町(mati1.png): 画像の横幅が 1584→1440 に変わったので、建物・NPCの位置を新しい画像に合わせて取り直す
 const t9=v=>v*W/1440,R9=(a,b,c,d,o)=>({x:t9(a),y:t9(b),w:t9(c-a),h:t9(d-b),...o});
 const doorB=R9(200,646,304,654,{n:'扉'});let doorOpen=false;
