@@ -287,10 +287,11 @@ const S_FMEET=[
  L('','グォォォォォォン!!!'),
  {fn:()=>{SE('bakuhatu');shake(700,9)}},
  {as:n=>fade(1,.5,n)},{fn:()=>playBGM('boss2')},{as:n=>fade(0,.6,n)},
- L('','BOSS\n炎竜 ― ラグナドレイク')];
+ L('','BOSS\n「炎竜」ラグナドレイク')];
 // 火山からの脱出: 下層(古代施設)→ ユグドラ南門の外へ
-const toLow=()=>{goField(6,0);P.x=200;P.y=100;P.hit=0;E=[];B=null;clr()};
-const toOut=()=>{goField(8,0);P.x=400;P.y=H-80;P.hit=0;E=[];B=null;clr()};
+const clrFx=()=>{F=[];R=[];msg={t:0,s:''}}; // 画面に残っているエフェクト(輪・ダメージ数字・字幕)を消す
+const toLow=()=>{clrFx();goField(6,0);P.x=200;P.y=100;P.hit=0;E=[];B=null;clr()};
+const toOut=()=>{clrFx();goField(8,0);P.x=400;P.y=H-80;P.hit=0;E=[];B=null;clr()};
 const S_END2=[
  L('','(炎竜が、ゆっくりと膝をついた)'),
  {fn:()=>{if(bgm)bgm.pause()}},
@@ -568,7 +569,7 @@ const gf=goField;goField=function(i,s,x,y){gf(i,s,x,y);kzSync();if(bgm&&MAPBGM[i
 // クリスタルドレイク(ボス1)を倒したら、職業選択のあと(play に戻ってから)終幕の会話を始める
 const oh=hurt;hurt=function(e,m){const b=e&&e.boss&&!e.k2&&!e.k3;oh(e,m);if(b&&e.hp<=0&&!P.ch.k1){P.ch.k1=1;END1=1}};
 // 炎竜(ボス部屋13のボス)を倒したら、play に戻ってから終幕の会話(S_END2)を始める
-const oh2=hurt;hurt=function(e,m){const b=e&&e.boss&&FI==13;oh2(e,m);if(b&&e.hp<=0&&!P.ch.f1){P.ch.f1=1;END2=1}};
+const oh2=hurt;hurt=function(e,m){const b=e&&e.boss&&FI==13;oh2(e,m);if(msg&&msg.s&&msg.s.includes('ファイアードレイク'))msg.s=msg.s.replace(/ファイアードレイク/g,'ラグナドレイク');if(b&&e.hp<=0&&!P.ch.f1){P.ch.f1=1;END2=1}};
 // 中層・上層を歩いている間、ときどき火山が揺れる(上層のほうが間隔が短い)
 let quakeT=0;
 (function qk(){const now=performance.now();
@@ -627,7 +628,28 @@ use=function(i){
  else if(i==1)for(let k=0;k<4;k++)slash(a+k*Math.PI/2,84,k*55,40); // 薙ぎ払い: ぐるっと一周
  else slash(a,120,0,50); // 大振り: 大きく一振り
 };
-const odS=draw;draw=function(){odS();slashDraw();beamDraw()};
+const odS=draw;draw=function(){odS();slashDraw();beamDraw();b3Txt()};
+// ===== 炎竜の名前: 「炎竜」ラグナドレイク(index.html の「ファイアードレイク」を、ここで上書きしている) =====
+const sb2=startBoss2;startBoss2=function(){sb2();if(B&&B.k2){B.n='「炎竜」ラグナドレイク';msg={t:2.4,s:'「炎竜」ラグナドレイク 出現!'}}};
+// ===== 地竜アースドレイク: 最後の分身戦の制限時間を10秒に / 時間切れ→分身が無敵になり、2秒後に消えて地竜が蘇る =====
+const B3LIM=10,B3DIE=2; // 制限時間(秒) / 時間切れから分身が消えるまで(秒)
+const bl0=b3Last;b3Last=function(e){bl0(e);e.rt=B3LIM};
+const b3_0=boss3;boss3=function(dt){
+ if(B&&B.k3&&B.md==6&&B.rt-dt<=0&&E.some(c=>c.cl)){ // 時間切れ(その瞬間に倒しきっていれば勝ち。ここには来ない)
+  B.md=7;B.lt=B3DIE;B.rt=0;
+  for(const c of E)if(c.cl){c.inv=999;c.c='#ffe27a';ring(c.x,c.y,50,'#ffe27a',.5)}
+  SE('flash');say('分身が無敵に! まもなく地竜が蘇る');
+ }
+ b3_0(dt);
+ if(B&&B.k3&&B.md==7){B.lt-=dt;if(B.lt<=0){for(const c of E)if(c.cl)ring(c.x,c.y,70,'#fff',.5);b3Revive()}} // 2秒たったら分身が消えて、地竜がHP50%で復活
+};
+const b3Txt=()=>{if(!(B&&B.k3&&B.md==7))return;g.save();g.textAlign='center';g.font='bold 18px sans-serif';g.fillStyle='#ffe27a';g.fillText('分身は無敵…  蘇りまで '+Math.max(0,B.lt).toFixed(1)+' 秒',W/2,140);g.restore()};
+// 会話・演出中は index.html の update() が止まるため、エフェクト(輪・ダメージ数字・字幕)の時間が進まず、画面に固まって残る。
+// そこで、会話中だけ、ここで時間を進めて自然に消えるようにする
+let fxLast=performance.now();
+(function fxTick(){const n=performance.now(),dt=Math.min(.05,(n-fxLast)/1000);fxLast=n;
+ if(state=='talk'||state=='choice'){F=F.filter(f=>(f.t-=dt)>0);R=R.filter(r=>(r.t-=dt)>0);msg.t-=dt}
+ requestAnimationFrame(fxTick)})();
 // 町(mati1.png): 画像の横幅が 1584→1440 に変わったので、建物・NPCの位置を新しい画像に合わせて取り直す
 const t9=v=>v*W/1440,R9=(a,b,c,d,o)=>({x:t9(a),y:t9(b),w:t9(c-a),h:t9(d-b),...o});
 const doorB=R9(200,646,304,654,{n:'扉'});let doorOpen=false;
